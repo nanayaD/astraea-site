@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1921">
+  <meta name="description" content="아스트라이아 기동편 세계관 체험. 메네사이트 시료의 기록을 살피고 이송처를 정합니다.">
+  <title>회수품 분류 체험 | 아스트라이아 기동편</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./field-report.css">
+  <script src="./field-report.js" defer></script>
+</head>
+<body>
+  <div class="terminal-frame">
+    <header class="terminal-header"><a class="terminal-brand" href="./index.html#menesite"><span class="brand-mark" aria-hidden="true">◇</span><span>ASTRAEA <small>기동편</small></span></a><a class="return-link" href="./index.html#menesite">세계관 페이지로 <span aria-hidden="true">↗</span></a></header>
+    <main>
+      <section class="mission-head" aria-labelledby="mission-title"><div><p class="eyebrow">IACO / FIELD REPORT 01 <span>MENESITE HANDLING</span></p><h1 id="mission-title">회수품<br><em>분류 체험</em></h1><p class="mission-lead">세 개의 시료가 도착했다. 봉인도, 남은 기록도 제각각이다. 판독 항목을 열고 이송처를 지정한다.</p></div><div class="mission-status"><span>TRANSFER PROGRESS</span><strong id="progress-count">00 / 03</strong><div class="progress-track" aria-hidden="true"><span id="progress-fill"></span></div><button type="button" id="reset-button">처음부터 다시</button></div></section>
+      <p class="draft-notice"><span aria-hidden="true">※</span> 이 체험의 시료와 상황은 화면 시안용 가상 사례입니다. 정식 사건 기록이나 확정된 인물 설정은 포함하지 않습니다.</p>
+      <section class="case-section" aria-label="시료 분류"><div class="case-section-top"><span>INCOMING SAMPLES / 03</span><span>SELECT A CASE ↓</span></div><div class="case-select" id="case-select" role="group" aria-label="조사할 시료 선택"></div>
+        <div class="case-board" id="case-board"><div class="sample-side"><div class="sample-visual" id="sample-visual" role="img" aria-label="시료의 추상적인 시안"><div class="sample-orbit orbit-one" aria-hidden="true"></div><div class="sample-orbit orbit-two" aria-hidden="true"></div><div class="sample-shape" aria-hidden="true"></div><span class="sample-axis">SAMPLE / VISUAL DRAFT</span><span class="sample-code" id="sample-code">S-01</span></div><div class="sample-meta"><span id="sample-source">SOURCE / —</span><span id="sample-seal">SEAL / —</span></div></div>
+          <div class="case-info"><div class="case-title-row"><div><span class="case-code" id="case-kicker">CASE 01 / INTAKE</span><h2 id="case-title">시료 기록</h2></div><span class="case-stamp" id="case-stamp">미분류</span></div><p class="case-intro" id="case-intro"></p><div class="clue-head"><h3>판독 항목</h3><span id="clue-count">0 / 2 확인</span></div><div class="clue-list" id="clue-list"></div><div class="routing-head"><h3>이송처 지정</h3><p id="routing-hint">판독 항목 두 개를 확인하면 이송처를 고를 수 있다.</p></div><div class="routing-choices" role="group" aria-label="이송처 선택"><button type="button" data-route-choice="refining" disabled><span>01</span><strong>정밀 정제</strong><small>새 기록을 담을 시료</small></button><button type="button" data-route-choice="evidence" disabled><span>02</span><strong>증거 분석</strong><small>이미 남은 흔적을 조사</small></button><button type="button" data-route-choice="isolation" disabled><span>03</span><strong>심부 격리</strong><small>상태부터 다시 확인</small></button></div><p class="case-feedback" id="case-feedback" role="status" aria-live="polite"></p><button type="button" id="next-case" class="next-case" hidden>다음 시료 열기 <span aria-hidden="true">→</span></button></div>
+        </div>
+      </section>
+      <section class="mission-complete" id="mission-complete" aria-labelledby="complete-title" hidden><span>REPORT CLOSED / 03 TRANSFERS</span><h2 id="complete-title">세 건의 이송이 끝났다.</h2><p>새 기록을 담을 광석과, 지난 일을 품은 파편. 둘은 같은 메네사이트다. 다만 같은 곳으로 보내지는 않는다.</p><div><button type="button" id="replay-button">다시 분류하기</button><a href="./index.html#menesite">메네사이트 기록으로 돌아가기 ↗</a></div></section>
+      <aside class="mission-footnote"><span>HANDLING NOTE</span><p>정보가 적게 섞인 시료는 정밀 가공에 유리하다. 회수품은 지난 사건의 단서를 품을 수 있다. 출처와 봉인 상태가 불분명하면 먼저 격리한다.</p></aside>
+    </main>
+    <footer class="terminal-footer"><span>ASTRAEA / WORLD PREVIEW</span><span>시료 외형 및 사건은 임시 시안</span></footer>
+  </div>
+</body>
+</html>
