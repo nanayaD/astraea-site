@@ -298,27 +298,37 @@ function init3D() {
       const marker = cityMarkers.find(item => item.id === id);
       const fitToLand = source => {
         const input = source.getAttribute('position').array;
-        const points = [];
+        const structure = [];
+        const detail = [];
+        const densityScale = Math.max(1, Math.min(1.5, 850 / viewport.clientWidth));
         for (let i = 0; i < input.length; i += 6) {
           const ax = input[i], az = input[i + 2], bx = input[i + 3], bz = input[i + 5];
           if (!contains(outline, marker.x + ax * .7, marker.y + az * .7)
             || !contains(outline, marker.x + bx * .7, marker.y + bz * .7)) continue;
+          const length = Math.hypot(input[i] - input[i + 3], input[i + 1] - input[i + 4], az - bz);
+          if (length < .8 * densityScale) continue;
+          const points = length >= 2 * densityScale ? structure : detail;
           for (let j = 0; j < 6; j += 3) {
             const x = input[i + j];
             const z = input[i + j + 2];
             points.push(x, input[i + j + 1] + 3, z);
           }
         }
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-        return geometry;
+        return [structure, detail].map(points => {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+          return geometry;
+        });
       };
       const group = new THREE.Group();
-      const targetOpacity = id === 'korga' ? .23 : .38;
-      group.add(new THREE.LineSegments(fitToLand(buildings), new THREE.LineBasicMaterial({
-        color: '#6fd5e6', transparent: true, opacity: reducedMotion.matches ? targetOpacity : 0,
-        depthWrite: false
-      })));
+      const [structure, detail] = fitToLand(buildings);
+      const targetOpacity = id === 'korga' ? [.13, .012] : [.16, .02];
+      [structure, detail].forEach((geometry, index) => {
+        group.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+          color: '#6fd5e6', transparent: true,
+          opacity: reducedMotion.matches ? targetOpacity[index] : 0, depthWrite: false
+        })));
+      });
       terrain.dispose();
       buildings.dispose();
       city.beacon.add(group);
@@ -371,7 +381,9 @@ function init3D() {
     if (!city.survey) return;
     const reveal = reducedMotion.matches ? 1 : Math.max(0, Math.min(1, (now - city.revealStarted) / 350));
     const zoom = Math.max(0, Math.min(1, (scale - 1.9) / .45));
-    city.survey.children[0].material.opacity = city.targetOpacity * reveal * zoom;
+    city.survey.children.forEach((lines, index) => {
+      lines.material.opacity = city.targetOpacity[index] * reveal * zoom;
+    });
   }
 
   const horizontalScale = (aspect, scale) => aspect < .9
@@ -463,7 +475,9 @@ function init3D() {
         if (city.survey) city.survey.visible = Boolean(id === city.id && currentState?.scale > 1.9);
         if (city.survey && id === city.id) {
           city.revealStarted = performance.now();
-          city.survey.children[0].material.opacity = reducedMotion.matches ? city.targetOpacity : 0;
+          city.survey.children.forEach((lines, index) => {
+            lines.material.opacity = reducedMotion.matches ? city.targetOpacity[index] : 0;
+          });
         }
       });
       draw();
