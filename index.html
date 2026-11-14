@@ -95,21 +95,21 @@
           <div class="nation-explorer" aria-labelledby="nation-title">
             <div class="subsection-head"><div><p class="eyebrow">THREE NATIONS / NINE CITIES</p><h3 id="nation-title">휴전 뒤의 세 나라</h3></div></div>
             <div class="atlas-shell" id="atlas" aria-label="세 나라 탐색 지도">
-              <div class="atlas-viewport" id="atlas-viewport" tabindex="-1" aria-label="드래그와 확대, 회전이 가능한 임시 지도">
+              <div class="atlas-viewport" id="atlas-viewport" tabindex="-1" aria-label="국가와 도시를 선택하는 입체 지도">
                 <div class="atlas-canvas" id="atlas-canvas">
                   <div class="atlas-webgl" id="atlas-webgl" aria-hidden="true"></div>
                   <svg class="atlas-svg" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-                    <defs><pattern id="atlas-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 H 0 V 50" fill="none" stroke="#94bac0" stroke-opacity=".12" stroke-width="1"/></pattern><pattern id="atlas-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M 0 0 V 9" stroke="#d3b687" stroke-opacity=".08" stroke-width="2"/></pattern><linearGradient id="atlas-scan-gradient"><stop offset="0" stop-color="#a6e9ea" stop-opacity="0"/><stop offset=".48" stop-color="#a6e9ea" stop-opacity=".16"/><stop offset="1" stop-color="#a6e9ea" stop-opacity="0"/></linearGradient></defs>
+                    <defs><pattern id="atlas-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 H 0 V 50" fill="none" stroke="#94bac0" stroke-opacity=".12" stroke-width="1"/></pattern><pattern id="atlas-dots" width="9" height="9" patternUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="1.35" fill="#a9e5ed" fill-opacity=".8"/></pattern><linearGradient id="atlas-scan-gradient"><stop offset="0" stop-color="#a6e9ea" stop-opacity="0"/><stop offset=".48" stop-color="#a6e9ea" stop-opacity=".16"/><stop offset="1" stop-color="#a6e9ea" stop-opacity="0"/></linearGradient></defs>
                     <rect width="1000" height="620" fill="#0c2530"/><rect width="1000" height="620" fill="url(#atlas-grid)"/>
                     <path class="atlas-current" d="M-30 185 C145 110 215 146 334 74 S571 60 646 28 M-20 472 C126 384 232 454 355 391 S566 392 695 337 896 362 1030 280 M-20 533 C183 460 252 532 426 475 S715 476 1030 408"/>
                     <g class="atlas-depth" id="atlas-depth" pointer-events="none"></g>
-                    <path class="atlas-region atlas-dravan" data-map-nation="dravan" d="M78 183 C142 149 209 160 263 126 L319 160 347 219 402 247 383 310 421 358 400 419 346 456 328 523 264 545 203 509 126 504 93 433 55 396 73 329 47 278Z"/>
-                    <path class="atlas-region atlas-kalden" data-map-nation="kalden" d="M320 81 C399 54 456 76 523 49 L596 72 650 62 721 102 799 110 838 172 827 238 778 262 738 317 681 291 625 322 571 285 510 310 444 269 389 287 361 220 310 175Z"/>
-                    <path class="atlas-region atlas-serein" data-map-nation="serein" d="M495 309 L565 296 623 336 678 307 732 339 796 305 849 348 896 412 875 471 811 488 781 542 708 555 648 529 570 548 513 512 462 460 441 392Z"/>
+                    <path class="atlas-region atlas-dravan" data-map-nation="dravan" d="M78 181 L101 169 125 173 149 151 183 159 210 142 239 152 263 130 290 153 313 162 332 195 356 217 353 244 381 264 372 300 403 328 395 358 421 381 398 411 374 420 354 455 329 468 322 520 296 541 264 535 243 550 205 517 170 515 147 503 113 508 97 484 94 441 70 416 55 388 72 356 59 326 73 293 48 274 59 240 51 214Z"/>
+                    <path class="atlas-region atlas-kalden" data-map-nation="kalden" d="M319 83 L347 76 369 81 397 61 432 70 459 59 488 64 519 49 550 57 578 75 616 62 650 76 682 70 715 98 748 96 774 116 803 111 829 145 845 176 832 207 829 236 799 250 780 267 757 271 742 306 711 301 684 290 651 310 625 323 593 309 573 288 542 298 514 310 482 285 449 269 417 279 388 286 361 255 358 221 342 190 310 176 328 149 305 119Z"/>
+                    <path class="atlas-region atlas-serein" data-map-nation="serein" d="M494 312 L525 304 566 296 595 315 622 338 654 325 678 308 705 320 731 339 759 323 793 305 818 321 850 348 864 374 894 409 900 434 875 453 851 459 829 479 810 485 802 468 782 457 770 477 790 499 781 537 756 548 730 539 709 559 681 551 647 530 625 535 599 550 567 541 537 527 511 512 489 489 464 459 450 424 440 393 457 361 469 331Z"/>
                     <g class="atlas-terrain" id="atlas-terrain" pointer-events="none"></g>
                     <path class="atlas-shore" d="M85 548 C137 578 224 582 280 564 M864 144 C911 152 954 177 979 208 M872 514 C938 519 970 543 1011 575"/>
                     <path class="atlas-border" d="M388 288 C447 311 476 299 503 313 M421 359 C441 343 468 323 495 309"/>
-                    <text class="atlas-water-label" x="78" y="90">WESTERN SURVEY / 01</text><text class="atlas-water-label" x="782" y="582">CHART / PROVISIONAL</text>
+                    <text class="atlas-water-label" x="78" y="90">WESTERN SURVEY / 01</text><text class="atlas-water-label" x="782" y="582">CHART / 01</text>
                   </svg>
                   <button class="atlas-nation" type="button" data-map-nation="dravan" style="left:25%;top:54%" aria-label="드라반 설명 열기">드라반</button>
                   <button class="atlas-nation" type="button" data-map-nation="kalden" style="left:57%;top:28%" aria-label="칼덴 설명 열기">칼덴</button>
@@ -128,7 +128,7 @@
                 <div class="atlas-readout" aria-live="off"><span>ZOOM <b id="atlas-zoom">90%</b></span><span class="atlas-angle-readout">ANGLE <b id="atlas-angle">0°</b></span><span>LAYER <b id="atlas-layer">NATIONS</b></span></div>
                 <div class="atlas-compass" aria-hidden="true"><span id="atlas-compass-needle">↑</span><small>N</small></div>
                 <div class="atlas-popup" id="atlas-popup" role="dialog" aria-modal="false" aria-labelledby="atlas-popup-title" hidden><button type="button" class="atlas-popup-close" aria-label="지도 설명 닫기">×</button><span class="atlas-popup-code" id="atlas-popup-code"></span><h4 id="atlas-popup-title"></h4><span class="atlas-popup-subtitle" id="atlas-popup-subtitle"></span><p id="atlas-popup-copy"></p><div class="atlas-popup-links" id="atlas-popup-links"></div></div>
-                <div class="atlas-provisional">임시 지도 시안</div>
+                <div class="atlas-provisional">도시 배치 시안</div>
               </div>
             </div>
           </div>

@@ -14,24 +14,24 @@
 .atlas-svg{display:block;width:100%;height:100%}
 .atlas-current{fill:none;stroke:#8ab9bf;stroke-opacity:.13;stroke-width:2}
 .atlas-depth-slice{stroke:#a5c4b3;stroke-width:1.3;stroke-opacity:.25}
-.atlas-depth-slice-0{fill:#071721;opacity:.83}
-.atlas-depth-slice-1{fill:#142d36;opacity:.88}
-.atlas-depth-slice-2{fill:#244148;opacity:.9}
+.atlas-depth-slice-0{fill:#071721;opacity:.23}
+.atlas-depth-slice-1{fill:#142d36;opacity:.28}
+.atlas-depth-slice-2{fill:#244148;opacity:.31}
 .atlas-depth-dravan{stroke:#8fbdae}.atlas-depth-kalden{stroke:#a1bec7}.atlas-depth-serein{stroke:#b0c8b9}
 .atlas-terrain{pointer-events:none}
-.atlas-facet-0{fill:#071c29;opacity:.18}.atlas-facet-1{fill:#1f4650;opacity:.14}.atlas-facet-2{fill:#71998f;opacity:.12}.atlas-facet-3{fill:#b3cdb7;opacity:.15}.atlas-facet-4{fill:#dfd2ac;opacity:.19}
+.atlas-facet-0{fill:#071c29;opacity:.04}.atlas-facet-1{fill:#1f4650;opacity:.05}.atlas-facet-2{fill:#71998f;opacity:.07}.atlas-facet-3{fill:#b3cdb7;opacity:.08}.atlas-facet-4{fill:#dfd2ac;opacity:.09}
 .atlas-mesh-grid,.atlas-mesh-diagonal{fill:none;vector-effect:non-scaling-stroke}
-.atlas-mesh-grid{stroke:#a7d8cf;stroke-opacity:.48;stroke-width:.85}
-.atlas-mesh-diagonal{stroke:#e4c99e;stroke-opacity:.23;stroke-width:.65}
-.atlas-relief-facet-0{fill:#142e37;opacity:.32}.atlas-relief-facet-1{fill:#9ac8b9;opacity:.16}.atlas-relief-facet-2{fill:#dae2c3;opacity:.13}
+.atlas-mesh-grid{stroke:#a7d8ea;stroke-opacity:.29;stroke-width:.85}
+.atlas-mesh-diagonal{stroke:#9bdfec;stroke-opacity:.14;stroke-width:.65}
+.atlas-relief-facet-0{fill:#142e37;opacity:.06}.atlas-relief-facet-1{fill:#9ac8b9;opacity:.07}.atlas-relief-facet-2{fill:#dae2c3;opacity:.08}
 .atlas-relief-ring,.atlas-relief-rib{fill:none;stroke:#d8e4c8;stroke-opacity:.48;stroke-width:1;vector-effect:non-scaling-stroke}
 .atlas-relief-rib{stroke-opacity:.28}
 .atlas-scan{animation:atlas-survey 16s linear infinite;pointer-events:none}
-.atlas-region{stroke:#d7bf94;stroke-opacity:.68;stroke-width:2;cursor:pointer;transition:fill .2s,stroke .2s}
+.atlas-region{stroke:#9bd9e5;stroke-opacity:.68;stroke-width:2;cursor:pointer;transition:fill .2s,stroke .2s}
 .atlas-region:hover,.atlas-region.is-active{stroke:#f0d6a1;stroke-width:3}
-.atlas-dravan{fill:#385951}.atlas-dravan:hover,.atlas-dravan.is-active{fill:#4f7768}
-.atlas-kalden{fill:#455b64}.atlas-kalden:hover,.atlas-kalden.is-active{fill:#607780}
-.atlas-serein{fill:#536266}.atlas-serein:hover,.atlas-serein.is-active{fill:#71817d}
+.atlas-dravan{fill:rgba(31,100,112,.13)}.atlas-dravan:hover,.atlas-dravan.is-active{fill:rgba(62,142,154,.24)}
+.atlas-kalden{fill:rgba(36,100,124,.13)}.atlas-kalden:hover,.atlas-kalden.is-active{fill:rgba(73,148,169,.24)}
+.atlas-serein{fill:rgba(36,98,135,.13)}.atlas-serein:hover,.atlas-serein.is-active{fill:rgba(68,136,178,.24)}
 .atlas-shore{fill:none;stroke:#a4c7c0;stroke-opacity:.28;stroke-width:2;stroke-dasharray:7 10}
 .atlas-border{fill:none;stroke:#f2cf8e;stroke-opacity:.45;stroke-width:2;stroke-dasharray:7 7}
 .atlas-water-label{fill:#83a3a8;opacity:.5;font:600 15px 'Barlow Condensed',sans-serif;letter-spacing:4px;pointer-events:none}

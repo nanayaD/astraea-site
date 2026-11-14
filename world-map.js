@@ -53,11 +53,11 @@ function buildTerrainMesh() {
     return element;
   };
 
-  // These heights are visual placeholders; they make the survey grid rise into ridges.
+  // Survey contours follow the approved landform design; city positions remain provisional.
   const peaks = [
-    [176, 274, 54, 88, 76], [293, 387, 32, 88, 75],
-    [490, 161, 63, 117, 80], [687, 189, 36, 94, 74],
-    [619, 430, 48, 95, 77], [793, 436, 32, 83, 73]
+    [239, 289, 48, 68, 82], [287, 433, 60, 57, 72],
+    [486, 139, 42, 139, 92], [638, 171, 29, 124, 85],
+    [544, 384, 19, 79, 77], [666, 468, 14, 107, 79]
   ];
   const heightAt = (x, y) => peaks.reduce((height, [px, py, elevation, rx, ry]) => {
     const dx = (x - px) / rx;
@@ -119,9 +119,9 @@ function buildTerrainMesh() {
   defs.append(geometry);
 
   const ridgeCenters = {
-    dravan: [176, 274, 53],
-    kalden: [490, 161, 62],
-    serein: [619, 430, 47]
+    dravan: [239, 289, 48],
+    kalden: [486, 139, 42],
+    serein: [544, 384, 19]
   };
   const ridgeFor = nation => {
     const [cx, cy, elevation] = ridgeCenters[nation];
@@ -168,6 +168,7 @@ function buildTerrainMesh() {
     clip.append(make('path', { d: outline }));
     defs.append(clip);
     const surface = make('g', { 'clip-path': `url(#${clipId})` });
+    surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
     surface.append(make('use', { href: '#atlas-terrain-geometry' }));
     surface.append(ridgeFor(nation));
     surface.append(make('rect', { class: 'atlas-scan', x: -340, y: -20, width: 250, height: 690, fill: 'url(#atlas-scan-gradient)' }));

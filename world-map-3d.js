@@ -7,12 +7,12 @@ const nationPaths = [...document.querySelectorAll('.atlas-region[data-map-nation
 const nationButtons = [...document.querySelectorAll('.atlas-nation')];
 const cityButtons = [...document.querySelectorAll('.atlas-city')];
 const peaks = {
-  dravan: [[176, 274, 82, 86, 78], [302, 390, 43, 78, 67]],
-  kalden: [[490, 158, 94, 111, 84], [690, 192, 52, 88, 74]],
-  serein: [[619, 430, 76, 93, 74], [793, 443, 47, 76, 67]]
+  dravan: [[239, 289, 72, 68, 82], [287, 433, 92, 57, 72], [122, 328, 28, 48, 76]],
+  kalden: [[486, 139, 63, 139, 92], [638, 171, 43, 124, 85], [748, 234, 26, 65, 59]],
+  serein: [[544, 384, 26, 79, 77], [666, 468, 19, 107, 79]]
 };
 const nationColors = {
-  dravan: '#3c6258', kalden: '#4b6470', serein: '#5c706c'
+  dravan: '#72d9db', kalden: '#a5e9f0', serein: '#80c9e9'
 };
 
 function heightAt(nation, x, y) {
@@ -109,6 +109,89 @@ function terrainGeometry(nation, outline) {
   return geometry;
 }
 
+function terrainDots(nation, outline, glow = false, mobile = false) {
+  const positions = [];
+  const colors = [];
+  const base = new THREE.Color(nationColors[nation]);
+  const high = new THREE.Color('#e4faff');
+  const step = mobile ? 16 : glow ? 18 : 9;
+  for (let y = 45, row = 0; y < 580; y += step, row += 1) {
+    for (let x = 48 + (row % 2) * step / 2; x < 908; x += step) {
+      if (!contains(outline, x, y)) continue;
+      const rise = heightAt(nation, x, y);
+      positions.push(x - 500, rise + 2.8, y - 310);
+      const color = base.clone().lerp(high, Math.min(.72, rise / 130));
+      colors.push(color.r, color.g, color.b);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  return new THREE.Points(geometry, new THREE.PointsMaterial({
+    size: glow ? 5.5 : mobile ? 2.3 : 2.15, sizeAttenuation: false, vertexColors: true,
+    transparent: true, opacity: glow ? .16 : .86, depthWrite: false,
+    blending: glow ? THREE.AdditiveBlending : THREE.NormalBlending
+  }));
+}
+
+function lineModel(cityIndex, nation) {
+  const lines = [];
+  const nodes = [];
+  const segment = (a, b) => lines.push(...a, ...b);
+  const box = (cx, cz, width, depth, height, detail = 7) => {
+    const x0 = cx - width / 2; const x1 = cx + width / 2;
+    const z0 = cz - depth / 2; const z1 = cz + depth / 2;
+    const corners = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+    for (let level = 0; level <= detail; level += 1) {
+      const elevation = 2 + height * level / detail;
+      corners.forEach(([x, z], index) => {
+        const [nx, nz] = corners[(index + 1) % 4];
+        segment([x, elevation, z], [nx, elevation, nz]);
+        if (level === detail) nodes.push(x, elevation, z);
+      });
+    }
+    for (const [x, z] of corners) segment([x, 2, z], [x, height + 2, z]);
+    for (let fraction = 1; fraction < 4; fraction += 1) {
+      const x = x0 + width * fraction / 4;
+      const z = z0 + depth * fraction / 4;
+      segment([x, 2, z0], [x, height + 2, z0]);
+      segment([x, 2, z1], [x, height + 2, z1]);
+      segment([x0, 2, z], [x0, height + 2, z]);
+      segment([x1, 2, z], [x1, height + 2, z]);
+    }
+  };
+  // A common survey model, with different skylines for the administrative,
+  // industrial, port, mining and former-front city records.
+  for (let row = -2; row <= 2; row += 1) {
+    for (let column = -2; column <= 2; column += 1) {
+      if ((row === 0 && column === 0) || (Math.abs(row) === 2 && Math.abs(column) === 2)) continue;
+      const seed = Math.abs(cityIndex * 17 + row * 11 + column * 7);
+      const height = 10 + (seed % 5) * 7 + (cityIndex === 1 || cityIndex === 7 ? 7 : 0);
+      box(column * 16.5, row * 16, 10 + seed % 4, 10 + seed % 3, height, 4 + seed % 3);
+    }
+  }
+  const civicHeight = [68, 46, 35, 60, 42, 31, 78, 52, 29][cityIndex];
+  box(0, 0, cityIndex === 1 || cityIndex === 4 ? 25 : 17, 18, civicHeight, 11);
+  for (let at = -48; at <= 48; at += 8) {
+    segment([-50, 1.5, at], [50, 1.5, at]);
+    segment([at, 1.5, -48], [at, 1.5, 48]);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
+  const group = new THREE.Group();
+  group.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+    color: nationColors[nation], transparent: true, opacity: .63,
+    depthWrite: false, blending: THREE.AdditiveBlending
+  })));
+  const nodeGeometry = new THREE.BufferGeometry();
+  nodeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(nodes, 3));
+  group.add(new THREE.Points(nodeGeometry, new THREE.PointsMaterial({
+    color: '#e0fcff', size: 2.8, sizeAttenuation: false, transparent: true,
+    opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending
+  })));
+  return group;
+}
+
 function mapMarkers(buttons, nationOf) {
   return buttons.map(button => ({
     button,
@@ -131,25 +214,17 @@ function init3D() {
     return;
   }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
-  renderer.setClearColor('#0c2530');
+  renderer.setClearColor('#061624');
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   canvasHost.append(renderer.domElement);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2('#0c2530', .0005);
+  scene.fog = new THREE.FogExp2('#061624', .00033);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
-  scene.add(new THREE.HemisphereLight('#e1f3e5', '#0c2630', 2.3));
-  const sunlight = new THREE.DirectionalLight('#f5d5a1', 2.6);
-  sunlight.position.set(-350, 620, 250);
-  scene.add(sunlight);
-  const edgeLight = new THREE.DirectionalLight('#80bdc5', 1.2);
-  edgeLight.position.set(300, 240, -500);
-  scene.add(edgeLight);
-
-  const ground = new THREE.GridHelper(1500, 36, '#426b73', '#254b53');
-  ground.position.y = -32;
+  const ground = new THREE.GridHelper(1500, 60, '#315c70', '#173a4c');
+  ground.position.y = -22;
   ground.material.transparent = true;
-  ground.material.opacity = .43;
+  ground.material.opacity = .24;
   ground.material.depthWrite = false;
   scene.add(ground);
   const world = new THREE.Group();
@@ -157,6 +232,8 @@ function init3D() {
   const pickMeshes = [];
   const cityPickMeshes = [];
   const nationMeshes = new Map();
+  const terrainWires = [];
+  const terrainPointLayers = [];
   const cityBeacons = [];
   const nationMarkers = mapMarkers(nationButtons, button => button.dataset.mapNation);
   const cityMarkers = mapMarkers(cityButtons, button => ({
@@ -181,74 +258,62 @@ function init3D() {
       else shape.lineTo(x - 500, y - 310);
     });
     shape.closePath();
-    const plateGeometry = new THREE.ExtrudeGeometry(shape, { depth: 17, bevelEnabled: false, curveSegments: 1 });
+    const plateGeometry = new THREE.ShapeGeometry(shape);
     plateGeometry.rotateX(Math.PI / 2);
-    const topMaterial = new THREE.MeshStandardMaterial({ color: nationColors[nation], roughness: .82, metalness: .12, side: THREE.DoubleSide });
-    const sideMaterial = new THREE.MeshStandardMaterial({ color: '#19323c', roughness: .9, metalness: .22, side: THREE.DoubleSide });
-    const plate = new THREE.Mesh(plateGeometry, [topMaterial, sideMaterial]);
+    const plate = new THREE.Mesh(plateGeometry, new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide, colorWrite: false, depthWrite: false
+    }));
     plate.userData.nation = nation;
     world.add(plate);
     pickMeshes.push(plate);
 
     const geometry = terrainGeometry(nation, outline);
-    const surface = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-      vertexColors: true, side: THREE.DoubleSide, roughness: .75, metalness: .22,
-      flatShading: true, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+    const surface = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+      side: THREE.DoubleSide, colorWrite: false, depthWrite: false
     }));
     surface.userData.nation = nation;
     world.add(surface);
     pickMeshes.push(surface);
     const meshLines = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({
-      color: nation === 'dravan' ? '#a0d3bc' : '#b8d9d1', transparent: true, opacity: .47, depthWrite: false
+      color: nationColors[nation], transparent: true, opacity: .17, depthWrite: false,
+      blending: THREE.AdditiveBlending
     }));
     meshLines.renderOrder = 2;
     world.add(meshLines);
+    terrainWires.push(meshLines);
+    const halo = terrainDots(nation, outline, true);
+    const detail = terrainDots(nation, outline);
+    const compact = terrainDots(nation, outline, false, true);
+    world.add(halo, detail, compact);
+    terrainPointLayers.push({ halo, detail, compact });
 
-    const topEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, 2.2, y - 310));
-    const lowerEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, -17, y - 310));
-    world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(topEdge), new THREE.LineBasicMaterial({ color: '#dcc695', transparent: true, opacity: .92 })));
-    world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(lowerEdge), new THREE.LineBasicMaterial({ color: '#638585', transparent: true, opacity: .45 })));
+    const topEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(nation, x, y) + 2.5, y - 310));
+    const lowerEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, -14, y - 310));
+    const border = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(topEdge), new THREE.LineBasicMaterial({
+      color: nationColors[nation], transparent: true, opacity: .72, depthWrite: false
+    }));
+    world.add(border);
     const studs = [];
-    for (let index = 0; index < outline.length; index += 8) studs.push(...topEdge[index].toArray(), ...lowerEdge[index].toArray());
+    for (let index = 0; index < outline.length; index += 12) studs.push(...topEdge[index].toArray(), ...lowerEdge[index].toArray());
     const studGeometry = new THREE.BufferGeometry();
     studGeometry.setAttribute('position', new THREE.Float32BufferAttribute(studs, 3));
-    world.add(new THREE.LineSegments(studGeometry, new THREE.LineBasicMaterial({ color: '#99b2aa', transparent: true, opacity: .24 })));
-    nationMeshes.set(nation, plate);
+    world.add(new THREE.LineSegments(studGeometry, new THREE.LineBasicMaterial({ color: nationColors[nation], transparent: true, opacity: .18, depthWrite: false })));
+    nationMeshes.set(nation, border);
   });
 
   cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
     const rise = heightAt(nation, x, y) + 4;
     const beacon = new THREE.Group();
     beacon.position.set(x - 500, rise, y - 310);
-    const platform = new THREE.Mesh(new THREE.BoxGeometry(54, 3, 50), new THREE.MeshStandardMaterial({ color: '#193941', metalness: .34, roughness: .65 }));
-    platform.position.y = 1.5;
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(100, 3, 96), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
+    platform.position.y = 1;
     platform.userData.city = id;
     beacon.add(platform);
     cityPickMeshes.push(platform);
-    const blockMaterial = new THREE.MeshStandardMaterial({ color: nationColors[nation], metalness: .28, roughness: .69, flatShading: true });
-    const accentMaterial = new THREE.MeshStandardMaterial({ color: '#cfb987', metalness: .48, roughness: .48, emissive: '#55442b', emissiveIntensity: .2 });
-    for (let row = -1; row <= 1; row += 1) {
-      for (let column = -1; column <= 1; column += 1) {
-        if (row === 0 && column === 0) continue;
-        const towerHeight = 8 + ((cityIndex * 3 + row * 5 + column * 7 + 20) % 5) * 4;
-        const building = new THREE.Mesh(new THREE.BoxGeometry(8, towerHeight, 8), blockMaterial);
-        building.position.set(column * 15, 3 + towerHeight / 2, row * 13);
-        building.userData.city = id;
-        beacon.add(building);
-        cityPickMeshes.push(building);
-      }
-    }
-    const core = new THREE.Mesh(new THREE.BoxGeometry(9, 34, 9), accentMaterial);
-    core.position.y = 20;
-    core.userData.city = id;
-    beacon.add(core);
-    cityPickMeshes.push(core);
-    const blockGrid = new THREE.GridHelper(50, 4, '#c3a776', '#628d89');
-    blockGrid.position.y = 3.1;
-    beacon.add(blockGrid);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(28, 29, 32), new THREE.MeshBasicMaterial({ color: '#e5c995', side: THREE.DoubleSide, transparent: true, opacity: .75, depthWrite: false }));
+    beacon.add(lineModel(cityIndex, nation));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(54, 54.5, 64), new THREE.MeshBasicMaterial({ color: '#b5f5ff', side: THREE.DoubleSide, transparent: true, opacity: .4, depthWrite: false, blending: THREE.AdditiveBlending }));
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 1;
+    ring.position.y = 1.2;
     beacon.add(ring);
     beacon.visible = false;
     world.add(beacon);
@@ -298,6 +363,11 @@ function init3D() {
       currentState = state;
       resize();
       const aspect = width / Math.max(1, height);
+      terrainWires.forEach(wire => { wire.material.opacity = aspect < .9 ? .045 : .17; });
+      terrainPointLayers.forEach(({ halo, detail, compact }) => {
+        halo.visible = detail.visible = aspect >= .9;
+        compact.visible = aspect < .9;
+      });
       world.scale.set(horizontalScale(aspect, state.scale), 1, aspect < .9 ? 1.25 : 1);
       world.updateMatrixWorld(true);
       const viewWidth = (aspect < .9 ? 520 : 1180) / state.scale;
@@ -369,9 +439,8 @@ function init3D() {
     setActive(nation) {
       if (nation === activeNation) return;
       activeNation = nation;
-      nationMeshes.forEach((mesh, id) => {
-        mesh.material[0].emissive.set(id === nation ? '#7c6849' : '#000000');
-        mesh.material[0].emissiveIntensity = id === nation ? .36 : 0;
+      nationMeshes.forEach((line, id) => {
+        line.material.opacity = id === nation ? 1 : .72;
       });
       draw();
     },
