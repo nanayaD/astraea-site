@@ -35,11 +35,56 @@ const nationMarkers = [...document.querySelectorAll('.atlas-nation')];
 const cityMarkers = [...document.querySelectorAll('.atlas-city')];
 const nationRegions = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
 const cityRevealScale = 1.25;
-const overviewState = { x: 0, y: 0, scale: .9, angle: 0, tilt: 24, focusY: 0 };
+const overviewState = { x: 0, y: 0, scale: 1, angle: 0, tilt: 24, focusY: 0 };
 const mapState = { ...overviewState };
 let atlas3d = null;
 let flightFrame = 0;
 let flightToken = 0;
+
+function shapeCoast() {
+  const anchors = [
+    [69, 221], [112, 198], [161, 177], [201, 158], [250, 154], [287, 131],
+    [331, 123], [359, 104], [393, 115], [429, 84], [471, 94], [516, 74],
+    [556, 89], [611, 78], [650, 94], [705, 80], [746, 100], [790, 100],
+    [831, 124], [863, 151], [889, 189], [873, 219], [912, 235], [928, 265],
+    [895, 284], [910, 317], [885, 345], [920, 365], [911, 391], [869, 408],
+    [842, 387], [816, 399], [803, 427], [833, 443], [866, 450], [882, 470],
+    [850, 479], [833, 507], [800, 517], [774, 493], [745, 530], [708, 541],
+    [677, 520], [637, 555], [604, 545], [567, 573], [526, 551], [493, 575],
+    [458, 550], [419, 566], [389, 546], [354, 542], [324, 555], [290, 529],
+    [266, 548], [242, 522], [225, 481], [205, 509], [187, 526], [162, 500],
+    [130, 493], [111, 468], [128, 441], [111, 420], [77, 402], [80, 367],
+    [53, 348], [65, 317], [49, 280], [65, 251]
+  ];
+  const sample = (p0, p1, p2, p3, t, axis) => .5 * ((2 * p1[axis])
+    + (-p0[axis] + p2[axis]) * t
+    + (2 * p0[axis] - 5 * p1[axis] + 4 * p2[axis] - p3[axis]) * t * t
+    + (-p0[axis] + 3 * p1[axis] - 3 * p2[axis] + p3[axis]) * t * t * t);
+  const points = [];
+  for (let index = 0; index < anchors.length; index += 1) {
+    const p0 = anchors[(index - 1 + anchors.length) % anchors.length];
+    const p1 = anchors[index];
+    const p2 = anchors[(index + 1) % anchors.length];
+    const p3 = anchors[(index + 2) % anchors.length];
+    for (let step = 0; step < 4; step += 1) {
+      const t = step / 4;
+      points.push([sample(p0, p1, p2, p3, t, 0), sample(p0, p1, p2, p3, t, 1)]);
+    }
+  }
+  const d = points.map(([x, y], index) => {
+    const prev = points[(index - 1 + points.length) % points.length];
+    const next = points[(index + 1) % points.length];
+    const length = Math.hypot(next[0] - prev[0], next[1] - prev[1]) || 1;
+    const noise = 1.2 * Math.sin(index * 2.17) + .8 * Math.sin(index * 5.31);
+    const px = x - (next[1] - prev[1]) / length * noise;
+    const py = y + (next[0] - prev[0]) / length * noise;
+    return `${index ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`;
+  }).join(' ') + 'Z';
+  document.querySelector('#atlas-land').setAttribute('d', d);
+  document.querySelector('#atlas-land-clip path').setAttribute('d', d);
+}
+
+shapeCoast();
 
 function buildTerrainMesh() {
   const svg = atlasCanvas.querySelector('.atlas-svg');
@@ -155,25 +200,27 @@ function buildTerrainMesh() {
     return ridge;
   };
 
-  nationRegions.forEach(region => {
-    const nation = region.dataset.mapNation;
-    const outline = region.getAttribute('d');
-    [24, 17, 9].forEach((offset, layer) => depthLayer.append(make('path', {
-      class: `atlas-depth-slice atlas-depth-slice-${layer} atlas-depth-${nation}`,
-      d: outline,
-      transform: `translate(0 ${offset})`
-    })));
-    const clipId = `atlas-clip-${nation}`;
-    const clip = make('clipPath', { id: clipId });
-    clip.append(make('path', { d: outline }));
-    defs.append(clip);
-    const surface = make('g', { 'clip-path': `url(#${clipId})` });
-    surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
-    surface.append(make('use', { href: '#atlas-terrain-geometry' }));
-    surface.append(ridgeFor(nation));
-    surface.append(make('rect', { class: 'atlas-scan', x: -340, y: -20, width: 250, height: 690, fill: 'url(#atlas-scan-gradient)' }));
-    terrainLayer.append(surface);
-  });
+  const outline = svg.querySelector('#atlas-land').getAttribute('d');
+  [18, 11, 5].forEach((offset, layer) => depthLayer.append(make('path', {
+    class: `atlas-depth-slice atlas-depth-slice-${layer}`,
+    d: outline,
+    transform: `translate(0 ${offset})`
+  })));
+  const surface = make('g', { 'clip-path': 'url(#atlas-land-clip)' });
+  surface.append(make('image', { href: './assets/atlas-relief-v1.png', x: 0, y: 0, width: 1000, height: 620, preserveAspectRatio: 'none', opacity: .58 }));
+  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
+  surface.append(make('use', { href: '#atlas-terrain-geometry' }));
+  for (const nation of ['dravan', 'kalden', 'serein']) surface.append(ridgeFor(nation));
+  surface.append(make('path', {
+    class: 'atlas-svg-route',
+    d: 'M180 248 C254 263 284 321 350 353 C405 327 427 216 460 130 C544 153 610 144 680 155 C723 185 729 226 750 267 M350 353 C282 379 278 431 250 459 M350 353 C432 357 504 394 570 415 C657 422 722 452 780 465 M570 415 C605 465 633 495 670 521'
+  }));
+  surface.append(make('path', {
+    class: 'atlas-svg-vein',
+    d: 'M133 334 C169 311 182 365 213 353 S251 389 271 400 M191 421 C222 393 241 444 281 438 M300 298 C315 307 330 302 343 324'
+  }));
+  surface.append(make('rect', { class: 'atlas-scan', x: -340, y: -20, width: 250, height: 690, fill: 'url(#atlas-scan-gradient)' }));
+  terrainLayer.append(surface);
 }
 
 buildTerrainMesh();

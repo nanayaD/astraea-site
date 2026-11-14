@@ -3,24 +3,31 @@ import * as THREE from './vendor/three/three.module.js';
 const viewport = document.querySelector('#atlas-viewport');
 const canvasHost = document.querySelector('#atlas-webgl');
 const atlasCanvas = document.querySelector('#atlas-canvas');
-const nationPaths = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
+const landPath = document.querySelector('#atlas-land');
 const nationButtons = [...document.querySelectorAll('.atlas-nation')];
 const cityButtons = [...document.querySelectorAll('.atlas-city')];
-const peaks = {
-  dravan: [[239, 289, 72, 68, 82], [287, 433, 92, 57, 72], [122, 328, 28, 48, 76]],
-  kalden: [[486, 139, 63, 139, 92], [638, 171, 43, 124, 85], [748, 234, 26, 65, 59]],
-  serein: [[544, 384, 26, 79, 77], [666, 468, 19, 107, 79]]
-};
+const peaks = [[140, 310, 37, 85, 98], [330, 220, 30, 105, 80],
+  [515, 148, 54, 175, 110], [723, 151, 36, 104, 90],
+  [549, 365, 17, 112, 76], [650, 500, 11, 105, 65],
+  [215, 382, -32, 38, 35], [284, 443, -25, 42, 37]];
 const nationColors = {
-  dravan: '#72d9db', kalden: '#a5e9f0', serein: '#80c9e9'
+  dravan: '#67c4d3', kalden: '#b1e8ed', serein: '#80d3eb'
 };
 
-function heightAt(nation, x, y) {
-  return peaks[nation].reduce((height, [px, py, rise, rx, ry]) => {
+function heightAt(_nation, x, y) {
+  const relief = peaks.reduce((height, [px, py, rise, rx, ry]) => {
     const dx = (x - px) / rx;
     const dy = (y - py) / ry;
     return height + rise * Math.exp(-.5 * (dx * dx + dy * dy));
-  }, 0);
+  }, 3);
+  return Math.max(1, relief + 3 * Math.sin(x * .022) * Math.cos(y * .029));
+}
+
+function nationAt(x, y) {
+  const west = y < 310 ? 338 + (y - 100) * .53 : 450 + (y - 310) * .07;
+  if (x < west) return 'dravan';
+  const south = 320 + 22 * Math.sin((x - 450) * .012) + (x - 450) * .07;
+  return y < south ? 'kalden' : 'serein';
 }
 
 function outlinePoints(path) {
@@ -45,16 +52,18 @@ function contains(points, x, y) {
 function terrainGeometry(nation, outline) {
   const positions = [];
   const colors = [];
+  const uvs = [];
   const bounds = outline.reduce((box, point) => ({
     left: Math.min(box.left, point.x), right: Math.max(box.right, point.x),
     top: Math.min(box.top, point.y), bottom: Math.max(box.bottom, point.y)
   }), { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity });
-  const step = 20;
+  const step = 12;
   const base = new THREE.Color(nationColors[nation]);
   const peak = new THREE.Color('#bdc9a9');
   const appendVertex = (x, y) => {
     const height = heightAt(nation, x, y);
     positions.push(x - 500, height + 1, y - 310);
+    uvs.push(x / 1000, 1 - y / 620);
     const color = base.clone().lerp(peak, Math.min(.65, height / 150));
     colors.push(color.r, color.g, color.b);
   };
@@ -105,22 +114,22 @@ function terrainGeometry(nation, outline) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
 }
 
-function terrainDots(nation, outline, glow = false, mobile = false) {
+function terrainDots(outline, mobile = false) {
   const positions = [];
   const colors = [];
-  const base = new THREE.Color(nationColors[nation]);
   const high = new THREE.Color('#e4faff');
-  const step = mobile ? 16 : glow ? 18 : 9;
-  for (let y = 45, row = 0; y < 580; y += step, row += 1) {
-    for (let x = 48 + (row % 2) * step / 2; x < 908; x += step) {
+  const step = mobile ? 14 : 7;
+  for (let y = 55, row = 0; y < 570; y += step, row += 1) {
+    for (let x = 50 + (row % 2) * step / 2; x < 935; x += step) {
       if (!contains(outline, x, y)) continue;
-      const rise = heightAt(nation, x, y);
+      const rise = heightAt(null, x, y);
       positions.push(x - 500, rise + 2.8, y - 310);
-      const color = base.clone().lerp(high, Math.min(.72, rise / 130));
+      const color = new THREE.Color(nationColors[nationAt(x, y)]).lerp(high, Math.min(.63, rise / 105));
       colors.push(color.r, color.g, color.b);
     }
   }
@@ -128,68 +137,161 @@ function terrainDots(nation, outline, glow = false, mobile = false) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   return new THREE.Points(geometry, new THREE.PointsMaterial({
-    size: glow ? 5.5 : mobile ? 2.3 : 2.15, sizeAttenuation: false, vertexColors: true,
-    transparent: true, opacity: glow ? .16 : .86, depthWrite: false,
-    blending: glow ? THREE.AdditiveBlending : THREE.NormalBlending
+    size: mobile ? 2.2 : 1.65, sizeAttenuation: false, vertexColors: true,
+    transparent: true, opacity: mobile ? .83 : .67, depthWrite: false,
+    blending: THREE.AdditiveBlending
   }));
 }
 
-function lineModel(cityIndex, nation) {
-  const lines = [];
-  const nodes = [];
-  const segment = (a, b) => lines.push(...a, ...b);
-  const box = (cx, cz, width, depth, height, detail = 7) => {
-    const x0 = cx - width / 2; const x1 = cx + width / 2;
-    const z0 = cz - depth / 2; const z1 = cz + depth / 2;
-    const corners = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
-    for (let level = 0; level <= detail; level += 1) {
-      const elevation = 2 + height * level / detail;
-      corners.forEach(([x, z], index) => {
-        const [nx, nz] = corners[(index + 1) % 4];
-        segment([x, elevation, z], [nx, elevation, nz]);
-        if (level === detail) nodes.push(x, elevation, z);
-      });
+function terrainContours(outline) {
+  const segments = [];
+  const step = 8;
+  const levels = [8, 13, 18, 24, 30, 37, 45, 53, 62, 72, 83];
+  const point = (x, y) => [x - 500, heightAt(null, x, y) + 2.4, y - 310];
+  for (let y = 55; y < 570; y += step) {
+    for (let x = 50; x < 935; x += step) {
+      if (!contains(outline, x + step / 2, y + step / 2)) continue;
+      const corners = [[x, y], [x + step, y], [x + step, y + step], [x, y + step]];
+      const heights = corners.map(([px, py]) => heightAt(null, px, py));
+      for (const level of levels) {
+        const crossings = [];
+        for (let edge = 0; edge < 4; edge += 1) {
+          const next = (edge + 1) % 4;
+          if ((heights[edge] < level) === (heights[next] < level)) continue;
+          const t = (level - heights[edge]) / (heights[next] - heights[edge]);
+          const px = corners[edge][0] + (corners[next][0] - corners[edge][0]) * t;
+          const py = corners[edge][1] + (corners[next][1] - corners[edge][1]) * t;
+          crossings.push(point(px, py));
+        }
+        if (crossings.length === 2) segments.push(...crossings[0], ...crossings[1]);
+        else if (crossings.length === 4) segments.push(...crossings[0], ...crossings[1], ...crossings[2], ...crossings[3]);
+      }
     }
-    for (const [x, z] of corners) segment([x, 2, z], [x, height + 2, z]);
-    for (let fraction = 1; fraction < 4; fraction += 1) {
-      const x = x0 + width * fraction / 4;
-      const z = z0 + depth * fraction / 4;
-      segment([x, 2, z0], [x, height + 2, z0]);
-      segment([x, 2, z1], [x, height + 2, z1]);
-      segment([x0, 2, z], [x0, height + 2, z]);
-      segment([x1, 2, z], [x1, height + 2, z]);
-    }
-  };
-  // A common survey model, with different skylines for the administrative,
-  // industrial, port, mining and former-front city records.
-  for (let row = -2; row <= 2; row += 1) {
-    for (let column = -2; column <= 2; column += 1) {
-      if ((row === 0 && column === 0) || (Math.abs(row) === 2 && Math.abs(column) === 2)) continue;
-      const seed = Math.abs(cityIndex * 17 + row * 11 + column * 7);
-      const height = 10 + (seed % 5) * 7 + (cityIndex === 1 || cityIndex === 7 ? 7 : 0);
-      box(column * 16.5, row * 16, 10 + seed % 4, 10 + seed % 3, height, 4 + seed % 3);
-    }
-  }
-  const civicHeight = [68, 46, 35, 60, 42, 31, 78, 52, 29][cityIndex];
-  box(0, 0, cityIndex === 1 || cityIndex === 4 ? 25 : 17, 18, civicHeight, 11);
-  for (let at = -48; at <= 48; at += 8) {
-    segment([-50, 1.5, at], [50, 1.5, at]);
-    segment([at, 1.5, -48], [at, 1.5, 48]);
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(lines, 3));
-  const group = new THREE.Group();
-  group.add(new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
-    color: nationColors[nation], transparent: true, opacity: .63,
-    depthWrite: false, blending: THREE.AdditiveBlending
-  })));
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
+  return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+    color: '#80bdca', transparent: true, opacity: .39, depthWrite: false
+  }));
+}
+
+function tracedLine(points, color, opacity = .6, lift = 3) {
+  const controls = points.map(([x, y]) => new THREE.Vector3(x, 0, y));
+  const curve = new THREE.CatmullRomCurve3(controls, false, 'centripetal');
+  const count = Math.max(20, points.length * 24);
+  const vertices = [];
+  for (let index = 0; index <= count; index += 1) {
+    const sample = curve.getPoint(index / count);
+    vertices.push(new THREE.Vector3(sample.x - 500, heightAt(null, sample.x, sample.z) + lift, sample.z - 310));
+  }
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(vertices), new THREE.LineBasicMaterial({
+    color, transparent: true, opacity, depthWrite: false
+  }));
+}
+
+function lineModel(cityIndex, nation, cx, cy, centerRise, outline) {
+  const roads = [];
+  const architecture = [];
+  const nodes = [];
+  const specs = [
+    { count: 28, height: 45, spread: 91, core: 57 },
+    { count: 22, height: 22, spread: 104, core: 30 },
+    { count: 16, height: 15, spread: 74, core: 23 },
+    { count: 25, height: 37, spread: 83, core: 49 },
+    { count: 16, height: 19, spread: 92, core: 27 },
+    { count: 15, height: 13, spread: 81, core: 18 },
+    { count: 34, height: 54, spread: 100, core: 76 },
+    { count: 27, height: 27, spread: 109, core: 38 },
+    { count: 20, height: 17, spread: 88, core: 24 }
+  ];
+  const spec = specs[cityIndex];
+  const ground = (dx, dz) => heightAt(nation, cx + dx, cy + dz) - centerRise + 3;
+  const inside = (dx, dz) => contains(outline, cx + dx, cy + dz);
+  const roadPoint = (dx, dz) => [dx, ground(dx, dz), dz];
+  const angle = [.04, -.15, .32, -.2, .22, -.36, .12, -.24, .19][cityIndex];
+  const rotate = ([u, v]) => [u * Math.cos(angle) - v * Math.sin(angle),
+    u * Math.sin(angle) + v * Math.cos(angle)];
+  const road = (rawA, rawB) => {
+    const a = rotate(rawA); const b = rotate(rawB);
+    if (inside(...a) && inside(...b)) roads.push(...roadPoint(...a), ...roadPoint(...b));
+  };
+  const industrial = [1, 4, 7, 8].includes(cityIndex);
+  const spacing = industrial ? 25 : 18;
+  const extent = spec.spread;
+  for (let u = -extent; u <= extent; u += spacing) {
+    for (let v = -extent * .8; v < extent * .8; v += 8) {
+      const warp = value => 2.5 * Math.sin(value * .034 + u * .011 + cityIndex);
+      road([u + warp(v), v], [u + warp(v + 8), v + 8]);
+    }
+  }
+  for (let v = -extent * .8; v <= extent * .8; v += spacing) {
+    for (let u = -extent; u < extent; u += 8) {
+      const warp = value => 2 * Math.sin(value * .027 + v * .017 + cityIndex);
+      road([u, v + warp(u)], [u + 8, v + warp(u + 8)]);
+    }
+  }
+  for (let u = -extent; u < extent; u += 8) {
+    road([u, -.22 * u - 8], [u + 8, -.22 * (u + 8) - 8]);
+  }
+  const segment = (a, b) => architecture.push(...a, ...b);
+  const building = (dx, dz, width, depth, rise, floors) => {
+    const corners = [[dx - width / 2, dz - depth / 2], [dx + width / 2, dz - depth / 2],
+      [dx + width / 2, dz + depth / 2], [dx - width / 2, dz + depth / 2]];
+    if (!corners.every(([x, z]) => inside(x, z))) return;
+    const base = corners.map(([x, z]) => ground(x, z));
+    const roof = base.reduce((sum, value) => sum + value, 0) / 4 + rise;
+    corners.forEach(([x, z], index) => {
+      const [nx, nz] = corners[(index + 1) % 4];
+      segment([x, base[index], z], [nx, base[(index + 1) % 4], nz]);
+      segment([x, base[index], z], [x, roof, z]);
+      segment([x, roof, z], [nx, roof, nz]);
+      nodes.push(x, roof, z);
+    });
+    for (let floor = 1; floor < floors; floor += 1) {
+      const level = floor / floors;
+      corners.forEach(([x, z], index) => {
+        const [nx, nz] = corners[(index + 1) % 4];
+        segment([x, base[index] + (roof - base[index]) * level, z],
+          [nx, base[(index + 1) % 4] + (roof - base[(index + 1) % 4]) * level, nz]);
+      });
+    }
+  };
+  for (let row = -4; row <= 4; row += 1) {
+    for (let column = -5; column <= 5; column += 1) {
+      if (row === 0 && column === 0) continue;
+      const seed = Math.abs((row * 71 + column * 53 + cityIndex * 47) * 13) % 101;
+      const radius = Math.hypot(column * spacing, row * spacing * .85);
+      if (radius > spec.spread || seed > (spec.count > 29 ? 73 : spec.count > 22 ? 61 : 47)) continue;
+      const [dx, dz] = rotate([column * spacing + 2 * Math.sin(seed), row * spacing + 2 * Math.cos(seed)]);
+      const width = industrial ? spacing * (.62 + seed % 3 * .06) : spacing * (.42 + seed % 3 * .1);
+      const depth = industrial ? spacing * (.56 + seed % 4 * .05) : spacing * (.43 + seed % 4 * .07);
+      const rise = 7 + (seed * 3 + cityIndex * 11) % spec.height;
+      building(dx, dz, width, depth, rise, Math.max(2, Math.min(9, Math.floor(rise / 7))));
+    }
+  }
+  building(0, 0, cityIndex === 1 || cityIndex === 7 ? 28 : 17,
+    cityIndex === 1 || cityIndex === 7 ? 20 : 17, spec.core, 8);
+  const roadGeometry = new THREE.BufferGeometry();
+  roadGeometry.setAttribute('position', new THREE.Float32BufferAttribute(roads, 3));
+  const buildingGeometry = new THREE.BufferGeometry();
+  buildingGeometry.setAttribute('position', new THREE.Float32BufferAttribute(architecture, 3));
   const nodeGeometry = new THREE.BufferGeometry();
   nodeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(nodes, 3));
-  group.add(new THREE.Points(nodeGeometry, new THREE.PointsMaterial({
-    color: '#e0fcff', size: 2.8, sizeAttenuation: false, transparent: true,
-    opacity: .9, depthWrite: false, blending: THREE.AdditiveBlending
+  const group = new THREE.Group();
+  const street = new THREE.LineSegments(roadGeometry, new THREE.LineBasicMaterial({
+    color: nationColors[nation], transparent: true, opacity: .56, depthWrite: false
+  }));
+  const buildings = new THREE.Group();
+  buildings.add(new THREE.LineSegments(buildingGeometry, new THREE.LineBasicMaterial({
+    color: '#b9f4fa', transparent: true, opacity: .72, depthWrite: false,
+    blending: THREE.AdditiveBlending
   })));
-  return group;
+  buildings.add(new THREE.Points(nodeGeometry, new THREE.PointsMaterial({
+    color: '#e3fdff', size: 2.25, sizeAttenuation: false, transparent: true,
+    opacity: .82, depthWrite: false, blending: THREE.AdditiveBlending
+  })));
+  group.add(street, buildings);
+  return { group, street, buildings };
 }
 
 function mapMarkers(buttons, nationOf) {
@@ -231,9 +333,7 @@ function init3D() {
   scene.add(world);
   const pickMeshes = [];
   const cityPickMeshes = [];
-  const nationMeshes = new Map();
-  const terrainWires = [];
-  const terrainPointLayers = [];
+  const borderLines = [];
   const cityBeacons = [];
   const nationMarkers = mapMarkers(nationButtons, button => button.dataset.mapNation);
   const cityMarkers = mapMarkers(cityButtons, button => ({
@@ -249,75 +349,102 @@ function init3D() {
     return [nation, anchor];
   }));
 
-  nationPaths.forEach(path => {
-    const nation = path.dataset.mapNation;
-    const outline = outlinePoints(path);
-    const shape = new THREE.Shape();
-    outline.forEach(({ x, y }, index) => {
-      if (index === 0) shape.moveTo(x - 500, y - 310);
-      else shape.lineTo(x - 500, y - 310);
-    });
-    shape.closePath();
-    const plateGeometry = new THREE.ShapeGeometry(shape);
-    plateGeometry.rotateX(Math.PI / 2);
-    const plate = new THREE.Mesh(plateGeometry, new THREE.MeshBasicMaterial({
-      side: THREE.DoubleSide, colorWrite: false, depthWrite: false
-    }));
-    plate.userData.nation = nation;
-    world.add(plate);
-    pickMeshes.push(plate);
-
-    const geometry = terrainGeometry(nation, outline);
-    const surface = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-      side: THREE.DoubleSide, colorWrite: false, depthWrite: false
-    }));
-    surface.userData.nation = nation;
-    world.add(surface);
-    pickMeshes.push(surface);
-    const meshLines = new THREE.LineSegments(new THREE.WireframeGeometry(geometry), new THREE.LineBasicMaterial({
-      color: nationColors[nation], transparent: true, opacity: .17, depthWrite: false,
-      blending: THREE.AdditiveBlending
-    }));
-    meshLines.renderOrder = 2;
-    world.add(meshLines);
-    terrainWires.push(meshLines);
-    const halo = terrainDots(nation, outline, true);
-    const detail = terrainDots(nation, outline);
-    const compact = terrainDots(nation, outline, false, true);
-    world.add(halo, detail, compact);
-    terrainPointLayers.push({ halo, detail, compact });
-
-    const topEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(nation, x, y) + 2.5, y - 310));
-    const lowerEdge = outline.map(({ x, y }) => new THREE.Vector3(x - 500, -14, y - 310));
-    const border = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(topEdge), new THREE.LineBasicMaterial({
-      color: nationColors[nation], transparent: true, opacity: .72, depthWrite: false
-    }));
-    world.add(border);
-    const studs = [];
-    for (let index = 0; index < outline.length; index += 12) studs.push(...topEdge[index].toArray(), ...lowerEdge[index].toArray());
-    const studGeometry = new THREE.BufferGeometry();
-    studGeometry.setAttribute('position', new THREE.Float32BufferAttribute(studs, 3));
-    world.add(new THREE.LineSegments(studGeometry, new THREE.LineBasicMaterial({ color: nationColors[nation], transparent: true, opacity: .18, depthWrite: false })));
-    nationMeshes.set(nation, border);
+  const outline = outlinePoints(landPath);
+  const shape = new THREE.Shape();
+  outline.forEach(({ x, y }, index) => {
+    if (index === 0) shape.moveTo(x - 500, y - 310);
+    else shape.lineTo(x - 500, y - 310);
   });
+  shape.closePath();
+  const plateGeometry = new THREE.ShapeGeometry(shape);
+  plateGeometry.rotateX(Math.PI / 2);
+  const plate = new THREE.Mesh(plateGeometry, new THREE.MeshBasicMaterial({
+    side: THREE.DoubleSide, colorWrite: false, depthWrite: false
+  }));
+  plate.userData.land = true;
+  world.add(plate);
+  pickMeshes.push(plate);
+  const geometry = terrainGeometry('kalden', outline);
+  const surface = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+    side: THREE.DoubleSide, colorWrite: false, depthWrite: false
+  }));
+  surface.userData.land = true;
+  world.add(surface);
+  pickMeshes.push(surface);
+  const reliefTexture = new THREE.TextureLoader().load('./assets/atlas-relief-v1.png', () => draw());
+  reliefTexture.colorSpace = THREE.SRGBColorSpace;
+  const reliefLayer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
+    map: reliefTexture, side: THREE.DoubleSide, transparent: true,
+    opacity: .78, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  reliefLayer.renderOrder = 1;
+  world.add(reliefLayer);
+
+  const desktopDots = terrainDots(outline);
+  const mobileDots = terrainDots(outline, true);
+  const contours = terrainContours(outline);
+  world.add(desktopDots, mobileDots, contours);
+  const coastPoints = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(null, x, y) + 3, y - 310));
+  world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(coastPoints), new THREE.LineBasicMaterial({
+    color: '#8ddce9', transparent: true, opacity: .79, depthWrite: false
+  })));
+  const coastSoundings = [];
+  for (let index = 0; index < coastPoints.length; index += 13) {
+    const [x, z] = [outline[index].x - 500, outline[index].y - 310];
+    coastSoundings.push(...coastPoints[index].toArray(), x, -9, z);
+  }
+  const soundings = new THREE.BufferGeometry();
+  soundings.setAttribute('position', new THREE.Float32BufferAttribute(coastSoundings, 3));
+  world.add(new THREE.LineSegments(soundings, new THREE.LineBasicMaterial({
+    color: '#4d9eae', transparent: true, opacity: .2, depthWrite: false
+  })));
+
+  const routes = [
+    [[180, 248], [272, 292], [350, 353], [427, 239], [460, 130]],
+    [[460, 130], [567, 145], [680, 155], [750, 267]],
+    [[250, 459], [303, 406], [350, 353], [455, 369], [570, 415]],
+    [[570, 415], [665, 431], [780, 465]],
+    [[570, 415], [614, 475], [670, 521]],
+    [[750, 267], [708, 331], [570, 415]]
+  ];
+  routes.forEach((points, index) => {
+    world.add(tracedLine(points, index < 2 ? '#a7dce6' : '#71bacb', index < 2 ? .62 : .48, 3.7));
+  });
+  const frontiers = [
+    [[338, 103], [371, 155], [414, 242], [450, 310], [438, 397], [469, 486], [452, 556]],
+    [[450, 310], [535, 337], [618, 329], [700, 347], [780, 341], [860, 349], [918, 365]]
+  ];
+  frontiers.forEach(points => {
+    const border = tracedLine(points, '#d6ae79', .56, 4.5);
+    world.add(border);
+    borderLines.push(border);
+  });
+  world.add(tracedLine([[159, 319], [201, 343], [268, 384], [316, 332]], '#dcad74', .43, 4));
+  world.add(tracedLine([[178, 423], [241, 407], [289, 447], [346, 400]], '#dcad74', .4, 4));
+  for (const [cx, cy, radius] of [[215, 382, 32], [284, 443, 25]]) {
+    for (const factor of [.48, .75, 1.02, 1.3]) {
+      const points = Array.from({ length: 49 }, (_, index) => {
+        const angle = index * Math.PI / 24;
+        return [cx + radius * factor * Math.cos(angle), cy + radius * factor * .72 * Math.sin(angle)];
+      });
+      world.add(tracedLine(points, '#d2a76d', .47, 4 + factor * 1.5));
+    }
+  }
 
   cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
-    const rise = heightAt(nation, x, y) + 4;
+    const rise = heightAt(nation, x, y);
     const beacon = new THREE.Group();
     beacon.position.set(x - 500, rise, y - 310);
     const platform = new THREE.Mesh(new THREE.BoxGeometry(100, 3, 96), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
-    platform.position.y = 1;
+    platform.position.y = 2;
     platform.userData.city = id;
     beacon.add(platform);
     cityPickMeshes.push(platform);
-    beacon.add(lineModel(cityIndex, nation));
-    const ring = new THREE.Mesh(new THREE.RingGeometry(54, 54.5, 64), new THREE.MeshBasicMaterial({ color: '#b5f5ff', side: THREE.DoubleSide, transparent: true, opacity: .4, depthWrite: false, blending: THREE.AdditiveBlending }));
-    ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 1.2;
-    beacon.add(ring);
-    beacon.visible = false;
+    const model = lineModel(cityIndex, nation, x, y, rise, outline);
+    beacon.add(model.group);
+    beacon.visible = true;
     world.add(beacon);
-    cityBeacons.push({ id, beacon, ring });
+    cityBeacons.push({ id, beacon, ...model });
   });
 
   const raycaster = new THREE.Raycaster();
@@ -363,11 +490,9 @@ function init3D() {
       currentState = state;
       resize();
       const aspect = width / Math.max(1, height);
-      terrainWires.forEach(wire => { wire.material.opacity = aspect < .9 ? .045 : .17; });
-      terrainPointLayers.forEach(({ halo, detail, compact }) => {
-        halo.visible = detail.visible = aspect >= .9;
-        compact.visible = aspect < .9;
-      });
+      desktopDots.visible = aspect >= .9;
+      mobileDots.visible = aspect < .9;
+      contours.material.opacity = aspect < .9 ? .24 : .39;
       world.scale.set(horizontalScale(aspect, state.scale), 1, aspect < .9 ? 1.25 : 1);
       world.updateMatrixWorld(true);
       const viewWidth = (aspect < .9 ? 520 : 1180) / state.scale;
@@ -395,7 +520,11 @@ function init3D() {
         anchor.style.top = `${(1 - point.y) * height / 2}px`;
       });
       cityMarkers.forEach(marker => projectMarker(marker, 48));
-      cityBeacons.forEach(({ id, beacon }) => { beacon.visible = showCities && (!focusedCity || focusedCity === id); });
+      cityBeacons.forEach(({ id, beacon, buildings, street }) => {
+        beacon.visible = !focusedCity || focusedCity === id;
+        buildings.visible = state.scale > 1.85 && (!focusedCity || focusedCity === id);
+        street.material.opacity = focusedCity === id ? .74 : .56;
+      });
       draw();
     },
     focusFor(type, id, view) {
@@ -414,7 +543,8 @@ function init3D() {
       const panZ = targetX * Math.sin(azimuth) + targetZ * Math.cos(azimuth);
       const focusY = heightAt(marker.nation, marker.x, marker.y) * (type === 'city' ? 1 : .42)
         + (type === 'city' ? (aspect < .9 ? -38 : 16) : 0);
-      return { ...view, x: -panX / unitsPerPixel, y: -panZ * Math.cos(tilt) / unitsPerPixel, focusY };
+      return { ...view, x: -panX / unitsPerPixel + (type === 'city' && aspect >= .9 ? 80 : 0),
+        y: -panZ * Math.cos(tilt) / unitsPerPixel, focusY };
     },
     pickFeature(clientX, clientY) {
       const rect = viewport.getBoundingClientRect();
@@ -423,25 +553,26 @@ function init3D() {
         -((clientY - rect.top) / rect.height) * 2 + 1
       ), camera);
       const showCities = viewport.classList.contains('show-cities');
-      const hit = raycaster.intersectObjects(showCities ? [...cityPickMeshes, ...pickMeshes] : pickMeshes, false)[0]?.object;
-      if (hit?.userData.city) return { type: 'city', id: hit.userData.city };
-      if (hit?.userData.nation) return { type: 'nation', id: hit.userData.nation };
+      const hit = raycaster.intersectObjects(showCities ? [...cityPickMeshes, ...pickMeshes] : pickMeshes, false)[0];
+      if (hit?.object.userData.city) return { type: 'city', id: hit.object.userData.city };
+      if (hit?.object.userData.land) {
+        const local = world.worldToLocal(hit.point.clone());
+        return { type: 'nation', id: nationAt(local.x + 500, local.z + 310) };
+      }
       return null;
     },
     anchorForNation(nation) { return nationAnchors.get(nation); },
     setFocusCity(id) {
       focusedCity = id;
       cityBeacons.forEach(({ id: cityId, beacon }) => {
-        beacon.visible = viewport.classList.contains('show-cities') && (!id || id === cityId);
+        beacon.visible = !id || id === cityId;
       });
       draw();
     },
     setActive(nation) {
       if (nation === activeNation) return;
       activeNation = nation;
-      nationMeshes.forEach((line, id) => {
-        line.material.opacity = id === nation ? 1 : .72;
-      });
+      borderLines.forEach(line => { line.material.opacity = nation ? .78 : .56; });
       draw();
     },
     resetMarkers() {
@@ -475,9 +606,8 @@ function init3D() {
     animationFrame = requestAnimationFrame(animate);
     if (!visible || now - lastFrame < 33) return;
     lastFrame = now;
-    cityBeacons.forEach(({ ring }, index) => {
-      const pulse = 1 + .13 * Math.sin(now * .0021 + index * .8);
-      ring.scale.set(pulse, pulse, 1);
+    cityBeacons.forEach(({ street }, index) => {
+      street.material.opacity = .52 + .07 * Math.sin(now * .0017 + index * .8);
     });
     draw();
   }
