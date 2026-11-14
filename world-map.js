@@ -31,9 +31,11 @@ const atlasCities = {
 const atlasViewport = document.querySelector('#atlas-viewport');
 const atlasCanvas = document.querySelector('#atlas-canvas');
 const atlasPopup = document.querySelector('#atlas-popup');
+const nationMarkers = [...document.querySelectorAll('.atlas-nation')];
 const cityMarkers = [...document.querySelectorAll('.atlas-city')];
 const nationRegions = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
-const mapState = { x: 0, y: 0, scale: 1, angle: 0 };
+const cityRevealScale = 1.25;
+const mapState = { x: 0, y: 0, scale: .9, angle: 0 };
 const pointers = new Map();
 const pointerRegions = new Map();
 let panStart = null;
@@ -61,6 +63,11 @@ function positionPopup() {
 
 function applyMap() {
   mapState.scale = clamp(mapState.scale, .8, 2.5);
+  const showCities = mapState.scale >= cityRevealScale;
+  if (atlasViewport.classList.contains('show-cities') !== showCities) {
+    closePopup();
+    atlasViewport.classList.toggle('show-cities', showCities);
+  }
   const xLimit = atlasViewport.clientWidth * mapState.scale * .65;
   const yLimit = atlasViewport.clientHeight * mapState.scale * .65;
   mapState.x = clamp(mapState.x, -xLimit, xLimit);
@@ -69,6 +76,7 @@ function applyMap() {
   atlasCanvas.style.setProperty('--counter-angle', `${-mapState.angle}deg`);
   document.querySelector('#atlas-zoom').textContent = `${Math.round(mapState.scale * 100)}%`;
   document.querySelector('#atlas-angle').textContent = `${Math.round(mapState.angle)}°`;
+  document.querySelector('#atlas-layer').textContent = showCities ? 'CITIES' : 'NATIONS';
   document.querySelector('#atlas-compass-needle').style.transform = `rotate(${-mapState.angle}deg)`;
   requestAnimationFrame(positionPopup);
 }
@@ -76,6 +84,7 @@ function applyMap() {
 function highlightSelection() {
   const nationId = activeSelection?.type === 'nation' ? activeSelection.id : atlasCities[activeSelection?.id]?.nation;
   nationRegions.forEach(region => region.classList.toggle('is-active', region.dataset.mapNation === nationId));
+  nationMarkers.forEach(marker => marker.classList.toggle('is-active', activeSelection?.type === 'nation' && marker.dataset.mapNation === activeSelection.id));
   cityMarkers.forEach(marker => marker.classList.toggle('is-active', activeSelection?.type === 'city' && marker.dataset.mapCity === activeSelection.id));
 }
 
@@ -104,14 +113,11 @@ function showPopup({ code, title, subtitle, copy, links }, anchor, selection) {
 function openNation(id, anchor) {
   const nation = atlasNations[id];
   if (!nation) return;
-  const links = nation.cities.map(cityId => ({
-    label: atlasCities[cityId].name,
-    action: () => openCity(cityId, document.querySelector(`.atlas-city[data-map-city="${cityId}"]`))
-  }));
-  showPopup({ code: nation.code, title: nation.name, subtitle: nation.subtitle, copy: nation.copy, links }, anchor, { type: 'nation', id });
+  showPopup({ code: nation.code, title: nation.name, subtitle: nation.subtitle, copy: nation.copy, links: [] }, anchor, { type: 'nation', id });
 }
 
 function openCity(id, anchor) {
+  if (!atlasViewport.classList.contains('show-cities')) return;
   const city = atlasCities[id];
   if (!city) return;
   const nation = atlasNations[city.nation];
@@ -134,6 +140,7 @@ function closePopup(returnFocus = false) {
   if (focusTarget?.focus) focusTarget.focus({ preventScroll: true });
 }
 
+nationMarkers.forEach(marker => marker.addEventListener('click', () => openNation(marker.dataset.mapNation, marker)));
 cityMarkers.forEach(marker => marker.addEventListener('click', () => openCity(marker.dataset.mapCity, marker)));
 nationRegions.forEach(region => region.addEventListener('click', () => {
   if (Date.now() < suppressMapClickUntil) return;
@@ -143,7 +150,7 @@ document.querySelector('.atlas-popup-close').addEventListener('click', () => clo
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closePopup(true); });
 atlasViewport.addEventListener('click', event => {
   if (Date.now() < suppressMapClickUntil) return;
-  if (!event.target.closest('.atlas-city, .atlas-region, .atlas-tools, .atlas-popup')) closePopup();
+  if (!event.target.closest('.atlas-nation, .atlas-city, .atlas-region, .atlas-tools, .atlas-popup')) closePopup();
 });
 
 document.querySelectorAll('[data-map-control]').forEach(button => button.addEventListener('click', () => {
@@ -152,7 +159,7 @@ document.querySelectorAll('[data-map-control]').forEach(button => button.addEven
     case 'zoom-out': mapState.scale /= 1.2; break;
     case 'rotate-left': mapState.angle -= 15; break;
     case 'rotate-right': mapState.angle += 15; break;
-    case 'reset': Object.assign(mapState, { x: 0, y: 0, scale: 1, angle: 0 }); break;
+    case 'reset': Object.assign(mapState, { x: 0, y: 0, scale: .9, angle: 0 }); break;
   }
   applyMap();
 }));
@@ -177,7 +184,7 @@ function gestureSnapshot() {
 }
 
 atlasViewport.addEventListener('pointerdown', event => {
-  if (event.target.closest('.atlas-tools, .atlas-city, .atlas-popup')) return;
+  if (event.target.closest('.atlas-tools, .atlas-nation, .atlas-city, .atlas-popup')) return;
   atlasViewport.setPointerCapture(event.pointerId);
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   const region = event.target.closest('.atlas-region[data-map-nation]');

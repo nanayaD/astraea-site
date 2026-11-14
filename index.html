@@ -106,9 +106,11 @@
                     <path class="atlas-shore" d="M85 548 C137 578 224 582 280 564 M864 144 C911 152 954 177 979 208 M872 514 C938 519 970 543 1011 575"/>
                     <g class="atlas-topography"><path d="M118 277 l24 -35 18 28 26 -42 25 38 M233 390 l18 -35 17 20 21 -30 27 38 M465 159 l21 -32 17 23 19 -33 30 39 M634 180 l23 -26 22 36 16 -20 22 32 M588 437 l18 -29 14 24 21 -36 27 45 M739 437 l26 -38 17 29 18 -23 21 29"/></g>
                     <path class="atlas-border" d="M388 288 C447 311 476 299 503 313 M421 359 C441 343 468 323 495 309"/>
-                    <text class="atlas-region-name" x="135" y="320">DRAVAN</text><text class="atlas-region-name" x="466" y="193">KALDEN</text><text class="atlas-region-name" x="584" y="449">SEREIN</text>
                     <text class="atlas-water-label" x="78" y="90">WESTERN SURVEY / 01</text><text class="atlas-water-label" x="782" y="582">CHART / PROVISIONAL</text>
                   </svg>
+                  <button class="atlas-nation" type="button" data-map-nation="dravan" style="left:25%;top:54%" aria-label="드라반 설명 열기">드라반</button>
+                  <button class="atlas-nation" type="button" data-map-nation="kalden" style="left:57%;top:28%" aria-label="칼덴 설명 열기">칼덴</button>
+                  <button class="atlas-nation" type="button" data-map-nation="serein" style="left:71%;top:69%" aria-label="세레인 설명 열기">세레인</button>
                   <button class="atlas-city" type="button" data-map-city="harven" style="left:46%;top:21%" aria-label="하르벤 도시 설명 열기"><span aria-hidden="true"></span><strong>하르벤</strong></button>
                   <button class="atlas-city" type="button" data-map-city="brek" style="left:68%;top:25%" aria-label="브레크 도시 설명 열기"><span aria-hidden="true"></span><strong>브레크</strong></button>
                   <button class="atlas-city" type="button" data-map-city="tork" style="left:75%;top:43%" aria-label="토르크 도시 설명 열기"><span aria-hidden="true"></span><strong>토르크</strong></button>
@@ -120,7 +122,7 @@
                   <button class="atlas-city" type="button" data-map-city="orsen" style="left:67%;top:84%" aria-label="오르센 도시 설명 열기"><span aria-hidden="true"></span><strong>오르센</strong></button>
                 </div>
                 <div class="atlas-tools" role="group" aria-label="지도 조작"><button type="button" data-map-control="zoom-in" aria-label="지도 확대">＋</button><button type="button" data-map-control="zoom-out" aria-label="지도 축소">－</button><button type="button" data-map-control="rotate-left" aria-label="지도 왼쪽 회전">↶</button><button type="button" data-map-control="rotate-right" aria-label="지도 오른쪽 회전">↷</button><button type="button" data-map-control="reset" aria-label="지도 위치와 배율 초기화">초기화</button></div>
-                <div class="atlas-readout" aria-live="off"><span>ZOOM <b id="atlas-zoom">100%</b></span><span>ANGLE <b id="atlas-angle">0°</b></span></div>
+                <div class="atlas-readout" aria-live="off"><span>ZOOM <b id="atlas-zoom">90%</b></span><span>ANGLE <b id="atlas-angle">0°</b></span><span>LAYER <b id="atlas-layer">NATIONS</b></span></div>
                 <div class="atlas-compass" aria-hidden="true"><span id="atlas-compass-needle">↑</span><small>N</small></div>
                 <div class="atlas-popup" id="atlas-popup" role="dialog" aria-modal="false" aria-labelledby="atlas-popup-title" hidden><button type="button" class="atlas-popup-close" aria-label="지도 설명 닫기">×</button><span class="atlas-popup-code" id="atlas-popup-code"></span><h4 id="atlas-popup-title"></h4><span class="atlas-popup-subtitle" id="atlas-popup-subtitle"></span><p id="atlas-popup-copy"></p><div class="atlas-popup-links" id="atlas-popup-links"></div></div>
                 <div class="atlas-provisional">임시 지도 시안</div>
