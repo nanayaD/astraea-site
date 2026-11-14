@@ -35,8 +35,11 @@ const nationMarkers = [...document.querySelectorAll('.atlas-nation')];
 const cityMarkers = [...document.querySelectorAll('.atlas-city')];
 const nationRegions = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
 const cityRevealScale = 1.25;
-const mapState = { x: 0, y: 0, scale: .9, angle: 0, tilt: 48 };
+const overviewState = { x: 0, y: 0, scale: .9, angle: 0, tilt: 24, focusY: 0 };
+const mapState = { ...overviewState };
 let atlas3d = null;
+let flightFrame = 0;
+let flightToken = 0;
 
 function buildTerrainMesh() {
   const svg = atlasCanvas.querySelector('.atlas-svg');
@@ -192,15 +195,19 @@ function positionPopup() {
   const centerY = anchor.top + anchor.height / 2 - host.top;
   const width = atlasPopup.offsetWidth;
   const height = atlasPopup.offsetHeight;
-  let left = centerX + 22;
+  let left = atlas3d && activeSelection?.type === 'city' && centerX > host.width * .45
+    ? centerX - width - 42 : centerX + 22;
   if (left + width > host.width - 15) left = centerX - width - 22;
   atlasPopup.style.left = `${clamp(left, 15, Math.max(15, host.width - width - 15))}px`;
   atlasPopup.style.top = `${clamp(centerY - height / 2, 15, Math.max(15, host.height - height - 15))}px`;
 }
 
 function applyMap() {
-  mapState.scale = clamp(mapState.scale, .8, 2.5);
-  mapState.tilt = clamp(mapState.tilt, 30, 70);
+  mapState.scale = clamp(mapState.scale, .8, atlas3d ? 3.3 : 2.5);
+  mapState.tilt = clamp(mapState.tilt, 20, 70);
+  if (atlas3d && mapState.scale < 1.9 && atlasViewport.classList.contains('is-city-focus') && !atlasViewport.classList.contains('is-flying')) {
+    setFocusedCity(null);
+  }
   const showCities = mapState.scale >= cityRevealScale;
   if (atlasViewport.classList.contains('show-cities') !== showCities) {
     closePopup();
@@ -220,10 +227,46 @@ function applyMap() {
   }
   document.querySelector('#atlas-zoom').textContent = `${Math.round(mapState.scale * 100)}%`;
   document.querySelector('#atlas-angle').textContent = `${Math.round(mapState.angle)}°`;
-  document.querySelector('#atlas-tilt').textContent = `${Math.round(mapState.tilt)}°`;
   document.querySelector('#atlas-layer').textContent = showCities ? 'CITIES' : 'NATIONS';
   document.querySelector('#atlas-compass-needle').style.transform = `rotate(${-mapState.angle}deg)`;
   requestAnimationFrame(positionPopup);
+}
+
+function cancelFlight() {
+  flightToken += 1;
+  if (flightFrame) cancelAnimationFrame(flightFrame);
+  flightFrame = 0;
+  atlasViewport.classList.remove('is-flying');
+}
+
+function flyTo(target, duration, complete) {
+  cancelFlight();
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    Object.assign(mapState, target);
+    applyMap();
+    complete?.();
+    return;
+  }
+  const token = flightToken;
+  const from = { ...mapState };
+  const started = performance.now();
+  atlasViewport.classList.add('is-flying');
+  const frame = now => {
+    if (token !== flightToken) return;
+    const progress = clamp((now - started) / duration, 0, 1);
+    const eased = progress < .5 ? 4 * progress ** 3 : 1 - (-2 * progress + 2) ** 3 / 2;
+    for (const key of ['x', 'y', 'scale', 'angle', 'tilt', 'focusY']) {
+      mapState[key] = from[key] + (target[key] - from[key]) * eased;
+    }
+    applyMap();
+    if (progress < 1) flightFrame = requestAnimationFrame(frame);
+    else {
+      flightFrame = 0;
+      atlasViewport.classList.remove('is-flying');
+      complete?.();
+    }
+  };
+  flightFrame = requestAnimationFrame(frame);
 }
 
 function highlightSelection() {
@@ -259,8 +302,18 @@ function showPopup({ code, title, subtitle, copy, links }, anchor, selection) {
 function openNation(id, anchor) {
   const nation = atlasNations[id];
   if (!nation) return;
-  if (atlas3d) anchor = atlas3d.anchorForNation(id);
-  showPopup({ code: nation.code, title: nation.name, subtitle: nation.subtitle, copy: nation.copy, links: [] }, anchor, { type: 'nation', id });
+  const show = () => showPopup({
+    code: nation.code, title: nation.name, subtitle: nation.subtitle, copy: nation.copy,
+    links: atlas3d ? nation.cities.map(cityId => ({
+      label: atlasCities[cityId].name,
+      action: () => openCity(cityId, document.querySelector(`.atlas-city[data-map-city="${cityId}"]`))
+    })) : []
+  }, atlas3d ? atlas3d.anchorForNation(id) : anchor, { type: 'nation', id });
+  if (!atlas3d) { show(); return; }
+  closePopup();
+  setFocusedCity(null);
+  atlas3d.setActive(id);
+  flyTo(atlas3d.focusFor('nation', id, { scale: 1.48, angle: 0, tilt: 44 }), 950, show);
 }
 
 function openCity(id, anchor) {
@@ -268,13 +321,25 @@ function openCity(id, anchor) {
   const city = atlasCities[id];
   if (!city) return;
   const nation = atlasNations[city.nation];
-  showPopup({
+  const show = () => showPopup({
     code: `${city.nation.toUpperCase()} / CITY FILE`,
     title: city.name,
     subtitle: `${nation.name} · ${city.subtitle}`,
     copy: city.copy,
     links: [{ label: `${nation.name} 보기`, action: () => openNation(city.nation, document.querySelector(`.atlas-region[data-map-nation="${city.nation}"]`)) }]
   }, anchor, { type: 'city', id });
+  if (!atlas3d) { show(); return; }
+  closePopup();
+  setFocusedCity(id);
+  atlas3d.setActive(city.nation);
+  const sideAngle = ['brek', 'rienna', 'korga'].includes(id) ? -18 : 18;
+  flyTo(atlas3d.focusFor('city', id, { scale: 3, angle: sideAngle, tilt: 64 }), 1100, show);
+}
+
+function setFocusedCity(id) {
+  atlasViewport.classList.toggle('is-city-focus', Boolean(id));
+  cityMarkers.forEach(marker => marker.classList.toggle('is-focused', marker.dataset.mapCity === id));
+  atlas3d?.setFocusCity(id);
 }
 
 function closePopup(returnFocus = false) {
@@ -301,13 +366,20 @@ atlasViewport.addEventListener('click', event => {
 });
 
 document.querySelectorAll('[data-map-control]').forEach(button => button.addEventListener('click', () => {
+  if (button.dataset.mapControl === 'reset' && atlas3d) {
+    closePopup();
+    setFocusedCity(null);
+    atlas3d.setActive(null);
+    flyTo(overviewState, 850);
+    return;
+  }
+  cancelFlight();
   switch (button.dataset.mapControl) {
     case 'zoom-in': mapState.scale *= 1.2; break;
     case 'zoom-out': mapState.scale /= 1.2; break;
     case 'rotate-left': mapState.angle -= 15; break;
     case 'rotate-right': mapState.angle += 15; break;
-    case 'tilt': mapState.tilt = mapState.tilt < 40 ? 48 : mapState.tilt < 58 ? 65 : 30; break;
-    case 'reset': Object.assign(mapState, { x: 0, y: 0, scale: .9, angle: 0, tilt: 48 }); break;
+    case 'reset': Object.assign(mapState, overviewState); break;
   }
   applyMap();
 }));
@@ -315,6 +387,7 @@ document.querySelectorAll('[data-map-control]').forEach(button => button.addEven
 atlasViewport.addEventListener('wheel', event => {
   if (event.target.closest('.atlas-popup')) return;
   event.preventDefault();
+  cancelFlight();
   mapState.scale *= event.deltaY < 0 ? 1.12 : 1 / 1.12;
   applyMap();
 }, { passive: false });
@@ -333,6 +406,7 @@ function gestureSnapshot() {
 
 atlasViewport.addEventListener('pointerdown', event => {
   if (event.target.closest('.atlas-tools, .atlas-nation, .atlas-city, .atlas-popup')) return;
+  cancelFlight();
   atlasViewport.setPointerCapture(event.pointerId);
   pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
   const region = event.target.closest('.atlas-region[data-map-nation]');
@@ -370,15 +444,16 @@ atlasViewport.addEventListener('pointermove', event => {
 function finishPointer(event) {
   if (!pointers.has(event.pointerId)) return;
   const selectedRegion = pointerRegions.get(event.pointerId);
-  const pickedNation = atlas3d && !movedDuringPointer && pointers.size === 1 && event.type === 'pointerup'
-    ? atlas3d.pickNation(event.clientX, event.clientY) : null;
+  const pickedFeature = atlas3d && !movedDuringPointer && pointers.size === 1 && event.type === 'pointerup'
+    ? atlas3d.pickFeature(event.clientX, event.clientY) : null;
   pointerRegions.delete(event.pointerId);
   pointers.delete(event.pointerId);
-  if (movedDuringPointer || selectedRegion || pickedNation) suppressMapClickUntil = Date.now() + 220;
+  if (movedDuringPointer || selectedRegion || pickedFeature) suppressMapClickUntil = Date.now() + 220;
   if (selectedRegion && !movedDuringPointer && event.type === 'pointerup') {
     openNation(selectedRegion, document.querySelector(`.atlas-region[data-map-nation="${selectedRegion}"]`));
   }
-  if (pickedNation) openNation(pickedNation);
+  if (pickedFeature?.type === 'city') openCity(pickedFeature.id, document.querySelector(`.atlas-city[data-map-city="${pickedFeature.id}"]`));
+  else if (pickedFeature?.type === 'nation') openNation(pickedFeature.id);
   if (pointers.size === 1) {
     const point = [...pointers.values()][0];
     panStart = { x: point.x, y: point.y, mapX: mapState.x, mapY: mapState.y };
@@ -403,6 +478,8 @@ window.atlasMap = {
   },
   disconnect3D(adapter) {
     if (atlas3d !== adapter) return;
+    cancelFlight();
+    setFocusedCity(null);
     atlas3d.resetMarkers();
     atlas3d = null;
     atlasViewport.classList.remove('is-3d');

@@ -112,6 +112,7 @@ function terrainGeometry(nation, outline) {
 function mapMarkers(buttons, nationOf) {
   return buttons.map(button => ({
     button,
+    id: button.dataset.mapCity || button.dataset.mapNation,
     nation: nationOf(button),
     x: parseFloat(button.style.left) * 10,
     y: parseFloat(button.style.top) * 6.2,
@@ -154,6 +155,7 @@ function init3D() {
   const world = new THREE.Group();
   scene.add(world);
   const pickMeshes = [];
+  const cityPickMeshes = [];
   const nationMeshes = new Map();
   const cityBeacons = [];
   const nationMarkers = mapMarkers(nationButtons, button => button.dataset.mapNation);
@@ -214,19 +216,43 @@ function init3D() {
     nationMeshes.set(nation, plate);
   });
 
-  cityMarkers.forEach(({ nation, x, y }) => {
+  cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
     const rise = heightAt(nation, x, y) + 4;
     const beacon = new THREE.Group();
     beacon.position.set(x - 500, rise, y - 310);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(7, 8.7, 24), new THREE.MeshBasicMaterial({ color: '#e5c995', side: THREE.DoubleSide, transparent: true, opacity: .85, depthWrite: false }));
+    const platform = new THREE.Mesh(new THREE.BoxGeometry(54, 3, 50), new THREE.MeshStandardMaterial({ color: '#193941', metalness: .34, roughness: .65 }));
+    platform.position.y = 1.5;
+    platform.userData.city = id;
+    beacon.add(platform);
+    cityPickMeshes.push(platform);
+    const blockMaterial = new THREE.MeshStandardMaterial({ color: nationColors[nation], metalness: .28, roughness: .69, flatShading: true });
+    const accentMaterial = new THREE.MeshStandardMaterial({ color: '#cfb987', metalness: .48, roughness: .48, emissive: '#55442b', emissiveIntensity: .2 });
+    for (let row = -1; row <= 1; row += 1) {
+      for (let column = -1; column <= 1; column += 1) {
+        if (row === 0 && column === 0) continue;
+        const towerHeight = 8 + ((cityIndex * 3 + row * 5 + column * 7 + 20) % 5) * 4;
+        const building = new THREE.Mesh(new THREE.BoxGeometry(8, towerHeight, 8), blockMaterial);
+        building.position.set(column * 15, 3 + towerHeight / 2, row * 13);
+        building.userData.city = id;
+        beacon.add(building);
+        cityPickMeshes.push(building);
+      }
+    }
+    const core = new THREE.Mesh(new THREE.BoxGeometry(9, 34, 9), accentMaterial);
+    core.position.y = 20;
+    core.userData.city = id;
+    beacon.add(core);
+    cityPickMeshes.push(core);
+    const blockGrid = new THREE.GridHelper(50, 4, '#c3a776', '#628d89');
+    blockGrid.position.y = 3.1;
+    beacon.add(blockGrid);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(28, 29, 32), new THREE.MeshBasicMaterial({ color: '#e5c995', side: THREE.DoubleSide, transparent: true, opacity: .75, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 1;
     beacon.add(ring);
-    const needle = new THREE.Mesh(new THREE.ConeGeometry(2.8, 13, 6), new THREE.MeshBasicMaterial({ color: '#cde8d6' }));
-    needle.position.y = 8;
-    beacon.add(needle);
     beacon.visible = false;
     world.add(beacon);
-    cityBeacons.push({ beacon, ring });
+    cityBeacons.push({ id, beacon, ring });
   });
 
   const raycaster = new THREE.Raycaster();
@@ -234,6 +260,7 @@ function init3D() {
   let width = 0;
   let height = 0;
   let activeNation = null;
+  let focusedCity = null;
   let visible = false;
   let animationFrame = 0;
   let lastFrame = 0;
@@ -262,13 +289,16 @@ function init3D() {
     if (!unavailable) renderer.render(scene, camera);
   }
 
+  const horizontalScale = (aspect, scale) => aspect < .9
+    ? .52 + .48 * Math.max(0, Math.min(1, (scale - 1.48) / 1.52)) : 1;
+
   const adapter = {
     update(state, showCities) {
       if (unavailable) return;
       currentState = state;
       resize();
       const aspect = width / Math.max(1, height);
-      world.scale.set(aspect < .9 ? .52 : 1, 1, aspect < .9 ? 1.25 : 1);
+      world.scale.set(horizontalScale(aspect, state.scale), 1, aspect < .9 ? 1.25 : 1);
       world.updateMatrixWorld(true);
       const viewWidth = (aspect < .9 ? 520 : 1180) / state.scale;
       const viewHeight = viewWidth / aspect;
@@ -284,8 +314,8 @@ function init3D() {
       const panZ = -state.y * unitsPerPixel / Math.max(.3, Math.cos(tilt));
       const targetX = panX * Math.cos(azimuth) + panZ * Math.sin(azimuth);
       const targetZ = -panX * Math.sin(azimuth) + panZ * Math.cos(azimuth);
-      const target = new THREE.Vector3(targetX, 0, targetZ);
-      camera.position.set(targetX + 950 * Math.sin(azimuth) * Math.sin(tilt), 950 * Math.cos(tilt), targetZ + 950 * Math.cos(azimuth) * Math.sin(tilt));
+      const target = new THREE.Vector3(targetX, state.focusY, targetZ);
+      camera.position.set(targetX + 950 * Math.sin(azimuth) * Math.sin(tilt), state.focusY + 950 * Math.cos(tilt), targetZ + 950 * Math.cos(azimuth) * Math.sin(tilt));
       camera.lookAt(target);
       camera.updateMatrixWorld();
       nationMarkers.forEach(marker => {
@@ -294,19 +324,48 @@ function init3D() {
         anchor.style.left = `${(point.x + 1) * width / 2}px`;
         anchor.style.top = `${(1 - point.y) * height / 2}px`;
       });
-      cityMarkers.forEach(marker => projectMarker(marker, 23));
-      cityBeacons.forEach(({ beacon }) => { beacon.visible = showCities; });
+      cityMarkers.forEach(marker => projectMarker(marker, 48));
+      cityBeacons.forEach(({ id, beacon }) => { beacon.visible = showCities && (!focusedCity || focusedCity === id); });
       draw();
     },
-    pickNation(clientX, clientY) {
+    focusFor(type, id, view) {
+      const marker = (type === 'city' ? cityMarkers : nationMarkers).find(item => item.id === id);
+      if (!marker) return view;
+      const aspect = width / Math.max(1, height);
+      const xScale = horizontalScale(aspect, view.scale);
+      const zScale = aspect < .9 ? 1.25 : 1;
+      const targetX = (marker.x - 500) * xScale;
+      const targetZ = (marker.y - 310) * zScale;
+      const azimuth = view.angle * Math.PI / 180;
+      const tilt = view.tilt * Math.PI / 180;
+      const viewWidth = (aspect < .9 ? 520 : 1180) / view.scale;
+      const unitsPerPixel = viewWidth / Math.max(1, width);
+      const panX = targetX * Math.cos(azimuth) - targetZ * Math.sin(azimuth);
+      const panZ = targetX * Math.sin(azimuth) + targetZ * Math.cos(azimuth);
+      const focusY = heightAt(marker.nation, marker.x, marker.y) * (type === 'city' ? 1 : .42)
+        + (type === 'city' ? (aspect < .9 ? -38 : 16) : 0);
+      return { ...view, x: -panX / unitsPerPixel, y: -panZ * Math.cos(tilt) / unitsPerPixel, focusY };
+    },
+    pickFeature(clientX, clientY) {
       const rect = viewport.getBoundingClientRect();
       raycaster.setFromCamera(new THREE.Vector2(
         ((clientX - rect.left) / rect.width) * 2 - 1,
         -((clientY - rect.top) / rect.height) * 2 + 1
       ), camera);
-      return raycaster.intersectObjects(pickMeshes, false)[0]?.object.userData.nation || null;
+      const showCities = viewport.classList.contains('show-cities');
+      const hit = raycaster.intersectObjects(showCities ? [...cityPickMeshes, ...pickMeshes] : pickMeshes, false)[0]?.object;
+      if (hit?.userData.city) return { type: 'city', id: hit.userData.city };
+      if (hit?.userData.nation) return { type: 'nation', id: hit.userData.nation };
+      return null;
     },
     anchorForNation(nation) { return nationAnchors.get(nation); },
+    setFocusCity(id) {
+      focusedCity = id;
+      cityBeacons.forEach(({ id: cityId, beacon }) => {
+        beacon.visible = viewport.classList.contains('show-cities') && (!id || id === cityId);
+      });
+      draw();
+    },
     setActive(nation) {
       if (nation === activeNation) return;
       activeNation = nation;

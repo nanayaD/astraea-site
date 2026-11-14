@@ -40,6 +40,7 @@
 .atlas-viewport.show-cities .atlas-nation{display:none}
 .atlas-city{position:absolute;z-index:2;transform:translate(-50%,-50%) rotate(var(--counter-angle));display:none;align-items:center;gap:7px;min-height:32px;padding:5px 9px;border:1px solid rgba(229,205,159,.52);background:rgba(7,25,32,.88);color:#f0e6cf;box-shadow:0 7px 18px rgba(0,0,0,.3);white-space:nowrap;transition:background .2s,border-color .2s,box-shadow .2s}
 .atlas-viewport.show-cities .atlas-city{display:flex}
+.atlas-viewport.is-city-focus .atlas-city:not(.is-focused){opacity:.32}
 .atlas-city>span{width:7px;height:7px;flex:none;background:var(--gold);transform:rotate(45deg)}
 .atlas-city strong{font-size:11px;letter-spacing:-.04em}
 .atlas-city:hover,.atlas-city.is-active{background:#dec18e;color:#10232c;border-color:#f3deaf;box-shadow:0 0 0 5px rgba(225,193,141,.16),0 8px 20px rgba(0,0,0,.35)}
@@ -48,11 +49,11 @@
 .atlas-tools button{width:36px;height:35px;padding:0;background:#254049;border:1px solid rgba(217,187,121,.23);color:#eed7aa;font-size:18px;line-height:1}
 .atlas-tools button:last-child{width:auto;padding:0 9px;font-size:11px;font-weight:700}
 .atlas-tools button:hover{background:#d7b883;color:#13252b}
-.atlas-tools [data-map-control=tilt]{display:none;width:auto;padding:0 9px;font-size:11px;font-weight:700}
-.atlas-viewport.is-3d .atlas-tools [data-map-control=tilt]{display:block}
+.atlas-viewport.is-3d .atlas-tools button:not([data-map-control=reset]){display:none}
+.atlas-viewport.is-3d .atlas-tools [data-map-control=reset]{padding:0 15px}
 .atlas-readout{position:absolute;z-index:3;left:18px;bottom:17px;display:flex;gap:18px;font:600 11px var(--display);letter-spacing:.13em;color:#8eb0b1;text-shadow:0 2px 6px #061820}
 .atlas-readout b{color:#f0d6aa}
-.atlas-tilt-readout{display:none}.atlas-viewport.is-3d .atlas-tilt-readout{display:inline}
+.atlas-viewport.is-3d .atlas-angle-readout{display:none}
 .atlas-compass{position:absolute;z-index:3;right:21px;top:17px;width:47px;height:47px;border:1px solid rgba(217,187,121,.45);border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,24,30,.72);color:#e5ca99}
 .atlas-compass span{font:600 20px/1 var(--display);transition:transform .2s}.atlas-compass small{font:600 9px var(--display)}
 .atlas-provisional{position:absolute;z-index:3;right:18px;bottom:16px;font:600 10px var(--display);letter-spacing:.15em;color:#95b2b1;text-shadow:0 2px 6px #061820}
