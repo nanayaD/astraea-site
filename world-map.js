@@ -98,6 +98,7 @@ function applyMap() {
   mapState.tilt = clamp(mapState.tilt, 20, 70);
   if (atlas3d && mapState.scale < 1.9 && atlasViewport.classList.contains('is-city-focus') && !atlasViewport.classList.contains('is-flying')) {
     setFocusedCity(null);
+    if (activeSelection?.type === 'city') closePopup();
   }
   const showCities = mapState.scale >= cityRevealScale;
   if (atlasViewport.classList.contains('show-cities') !== showCities) {

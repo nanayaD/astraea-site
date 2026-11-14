@@ -367,6 +367,13 @@ function init3D() {
     if (!unavailable) renderer.render(scene, camera);
   }
 
+  function updateSurveyOpacity(city, scale, now) {
+    if (!city.survey) return;
+    const reveal = reducedMotion.matches ? 1 : Math.max(0, Math.min(1, (now - city.revealStarted) / 350));
+    const zoom = Math.max(0, Math.min(1, (scale - 1.9) / .45));
+    city.survey.children[0].material.opacity = city.targetOpacity * reveal * zoom;
+  }
+
   const horizontalScale = (aspect, scale) => aspect < .9
     ? .52 + .48 * Math.max(0, Math.min(1, (scale - 1.48) / 1.52)) : 1;
 
@@ -406,10 +413,10 @@ function init3D() {
         anchor.style.top = `${(1 - point.y) * height / 2}px`;
       });
       cityMarkers.forEach(marker => projectMarker(marker, 48));
-      cityBeacons.forEach(({ id, beacon, survey }) => {
-        beacon.visible = !focusedCity || focusedCity === id;
-        const showSurvey = Boolean(survey && focusedCity === id && state.scale > 1.85);
-        if (survey) survey.visible = showSurvey;
+      cityBeacons.forEach(city => {
+        city.beacon.visible = !focusedCity || focusedCity === city.id;
+        if (city.survey) city.survey.visible = Boolean(focusedCity === city.id && state.scale > 1.9);
+        updateSurveyOpacity(city, state.scale, performance.now());
       });
       draw();
     },
@@ -453,7 +460,7 @@ function init3D() {
       if (id) showCitySurvey(id);
       cityBeacons.forEach(city => {
         city.beacon.visible = !id || id === city.id;
-        if (city.survey) city.survey.visible = Boolean(id === city.id && currentState?.scale > 1.85);
+        if (city.survey) city.survey.visible = Boolean(id === city.id && currentState?.scale > 1.9);
         if (city.survey && id === city.id) {
           city.revealStarted = performance.now();
           city.survey.children[0].material.opacity = reducedMotion.matches ? city.targetOpacity : 0;
@@ -499,10 +506,7 @@ function init3D() {
     animationFrame = requestAnimationFrame(animate);
     if (!visible || now - lastFrame < 33) return;
     lastFrame = now;
-    cityBeacons.forEach(({ survey, revealStarted, targetOpacity }) => {
-      if (!survey || !revealStarted || reducedMotion.matches) return;
-      survey.children[0].material.opacity = targetOpacity * Math.min(1, (now - revealStarted) / 350);
-    });
+    cityBeacons.forEach(city => updateSurveyOpacity(city, currentState?.scale ?? 1, now));
     draw();
   }
 }
