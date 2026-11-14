@@ -111,7 +111,6 @@ function bindTabs(buttonSelector, panelSelector, buttonKey, panelKey) {
   });
 }
 
-bindTabs('[data-nation]', '[data-nation-panel]', 'nation', 'nationPanel');
 bindTabs('[data-era]', '[data-era-panel]', 'era', 'eraPanel');
 bindTabs('[data-material-use]', '[data-material-panel]', 'materialUse', 'materialPanel');
 

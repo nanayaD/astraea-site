@@ -92,9 +92,9 @@
           </div>
           <div class="world-note"><span class="note-marker">CONCORDIA CHARTER</span><p>칼덴·세레인·드라반이 헌장에 서명했다. 국제휴전헌장기구는 사건을 조사하고 판정하며, 조치를 집행하고 기록을 남긴다.</p><span class="note-line" aria-hidden="true"></span></div>
           <div class="nation-explorer" aria-labelledby="nation-title">
-            <div class="subsection-head"><div><p class="eyebrow">THREE NATIONS / NINE CITIES</p><h3 id="nation-title">휴전 뒤의 세 나라</h3></div><p>지도를 움직이고 나라를 선택한다. 각 도시의 기록은 아래에서 이어진다.</p></div>
+            <div class="subsection-head"><div><p class="eyebrow">THREE NATIONS / NINE CITIES</p><h3 id="nation-title">휴전 뒤의 세 나라</h3></div></div>
             <div class="atlas-shell" id="atlas" aria-label="세 나라 탐색 지도">
-              <div class="atlas-viewport" id="atlas-viewport" aria-label="드래그와 확대, 회전이 가능한 임시 지도">
+              <div class="atlas-viewport" id="atlas-viewport" tabindex="-1" aria-label="드래그와 확대, 회전이 가능한 임시 지도">
                 <div class="atlas-canvas" id="atlas-canvas">
                   <svg class="atlas-svg" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
                     <defs><pattern id="atlas-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 H 0 V 50" fill="none" stroke="#94bac0" stroke-opacity=".12" stroke-width="1"/></pattern><pattern id="atlas-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M 0 0 V 9" stroke="#d3b687" stroke-opacity=".08" stroke-width="2"/></pattern></defs>
@@ -106,27 +106,26 @@
                     <path class="atlas-shore" d="M85 548 C137 578 224 582 280 564 M864 144 C911 152 954 177 979 208 M872 514 C938 519 970 543 1011 575"/>
                     <g class="atlas-topography"><path d="M118 277 l24 -35 18 28 26 -42 25 38 M233 390 l18 -35 17 20 21 -30 27 38 M465 159 l21 -32 17 23 19 -33 30 39 M634 180 l23 -26 22 36 16 -20 22 32 M588 437 l18 -29 14 24 21 -36 27 45 M739 437 l26 -38 17 29 18 -23 21 29"/></g>
                     <path class="atlas-border" d="M388 288 C447 311 476 299 503 313 M421 359 C441 343 468 323 495 309"/>
+                    <text class="atlas-region-name" x="135" y="320">DRAVAN</text><text class="atlas-region-name" x="466" y="193">KALDEN</text><text class="atlas-region-name" x="584" y="449">SEREIN</text>
                     <text class="atlas-water-label" x="78" y="90">WESTERN SURVEY / 01</text><text class="atlas-water-label" x="782" y="582">CHART / PROVISIONAL</text>
                   </svg>
-                  <button class="atlas-pin" type="button" data-map-nation="dravan" style="left:25%;top:54%" aria-label="지도에서 드라반 선택"><small>03</small><strong>드라반</strong></button>
-                  <button class="atlas-pin" type="button" data-map-nation="kalden" style="left:57%;top:28%" aria-label="지도에서 칼덴 선택"><small>01</small><strong>칼덴</strong></button>
-                  <button class="atlas-pin" type="button" data-map-nation="serein" style="left:71%;top:69%" aria-label="지도에서 세레인 선택"><small>02</small><strong>세레인</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="harven" style="left:46%;top:21%" aria-label="하르벤 도시 설명 열기"><span aria-hidden="true"></span><strong>하르벤</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="brek" style="left:68%;top:25%" aria-label="브레크 도시 설명 열기"><span aria-hidden="true"></span><strong>브레크</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="tork" style="left:75%;top:43%" aria-label="토르크 도시 설명 열기"><span aria-hidden="true"></span><strong>토르크</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="bardan" style="left:18%;top:40%" aria-label="바르단 도시 설명 열기"><span aria-hidden="true"></span><strong>바르단</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="korga" style="left:25%;top:74%" aria-label="코르가 도시 설명 열기"><span aria-hidden="true"></span><strong>코르가</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="ravkan" style="left:35%;top:57%" aria-label="라브칸 도시 설명 열기"><span aria-hidden="true"></span><strong>라브칸</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="rienna" style="left:57%;top:67%" aria-label="리에나 도시 설명 열기"><span aria-hidden="true"></span><strong>리에나</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="belmar" style="left:78%;top:75%" aria-label="벨마르 도시 설명 열기"><span aria-hidden="true"></span><strong>벨마르</strong></button>
+                  <button class="atlas-city" type="button" data-map-city="orsen" style="left:67%;top:84%" aria-label="오르센 도시 설명 열기"><span aria-hidden="true"></span><strong>오르센</strong></button>
                 </div>
                 <div class="atlas-tools" role="group" aria-label="지도 조작"><button type="button" data-map-control="zoom-in" aria-label="지도 확대">＋</button><button type="button" data-map-control="zoom-out" aria-label="지도 축소">－</button><button type="button" data-map-control="rotate-left" aria-label="지도 왼쪽 회전">↶</button><button type="button" data-map-control="rotate-right" aria-label="지도 오른쪽 회전">↷</button><button type="button" data-map-control="reset" aria-label="지도 위치와 배율 초기화">초기화</button></div>
                 <div class="atlas-readout" aria-live="off"><span>ZOOM <b id="atlas-zoom">100%</b></span><span>ANGLE <b id="atlas-angle">0°</b></span></div>
                 <div class="atlas-compass" aria-hidden="true"><span id="atlas-compass-needle">↑</span><small>N</small></div>
-                <div class="atlas-drag-hint">드래그 이동 · 휠 확대 · 두 손가락 회전</div>
+                <div class="atlas-popup" id="atlas-popup" role="dialog" aria-modal="false" aria-labelledby="atlas-popup-title" hidden><button type="button" class="atlas-popup-close" aria-label="지도 설명 닫기">×</button><span class="atlas-popup-code" id="atlas-popup-code"></span><h4 id="atlas-popup-title"></h4><span class="atlas-popup-subtitle" id="atlas-popup-subtitle"></span><p id="atlas-popup-copy"></p><div class="atlas-popup-links" id="atlas-popup-links"></div></div>
+                <div class="atlas-provisional">임시 지도 시안</div>
               </div>
-              <aside class="atlas-info" aria-live="polite"><span class="detail-code" id="atlas-file">01 / KALDEN</span><div class="atlas-info-top"><span class="atlas-info-glyph" id="atlas-glyph" aria-hidden="true">K</span><div><small id="atlas-theme">질서와 복무</small><h4 id="atlas-name">칼덴</h4></div></div><h5 id="atlas-heading">국가는 지키고, 기록한다</h5><p id="atlas-copy">군 병원과 국책 연구소가 메네사이트 기술을 관리한다. 하르벤의 제도와 토르크의 검문소에서 신분과 복무 기록은 서로 다른 무게를 지닌다.</p><div class="atlas-city-head">REPRESENTATIVE CITIES / 03</div><div class="atlas-city-list" id="atlas-city-list"><span>하르벤</span><span>브레크</span><span>토르크</span></div><p class="atlas-provisional">※ 지형과 도시의 지도상 위치는 임시 배치 시안입니다.</p></aside>
             </div>
-            <div class="nation-tabs" role="tablist" aria-label="국가 탐색">
-              <button type="button" role="tab" id="nation-tab-kalden" aria-controls="nation-panel-kalden" aria-selected="true" data-nation="kalden">01 <strong>칼덴</strong><small>질서와 복무</small></button>
-              <button type="button" role="tab" id="nation-tab-serein" aria-controls="nation-panel-serein" aria-selected="false" tabindex="-1" data-nation="serein">02 <strong>세레인</strong><small>계약과 선택</small></button>
-              <button type="button" role="tab" id="nation-tab-dravan" aria-controls="nation-panel-dravan" aria-selected="false" tabindex="-1" data-nation="dravan">03 <strong>드라반</strong><small>자원과 현장</small></button>
-            </div>
-            <div class="nation-panel" role="tabpanel" id="nation-panel-kalden" aria-labelledby="nation-tab-kalden" data-nation-panel="kalden"><span class="nation-glyph" aria-hidden="true">K</span><div><span class="detail-code">KALDEN / PUBLIC FILE</span><h4>국가는 지키고, 기록한다</h4><p>군 병원과 국책 연구소가 메네사이트 기술을 관리한다. 하르벤의 제도와 토르크의 검문소에서 신분과 복무 기록은 서로 다른 무게를 지닌다.</p><div class="city-list"><span>하르벤 <small>중앙행정</small></span><span>브레크 <small>군수산업</small></span><span>토르크 <small>국경</small></span></div></div></div>
-            <div class="nation-panel" role="tabpanel" id="nation-panel-serein" aria-labelledby="nation-tab-serein" data-nation-panel="serein" hidden><span class="nation-glyph" aria-hidden="true">S</span><div><span class="detail-code">SEREIN / PUBLIC FILE</span><h4>먼저 계약서를 내민다</h4><p>정제시설과 고급 의료 서비스는 기업망 안에서 돌아간다. 리에나의 병원과 오르센의 낡은 기업병원은 같은 기술이 계약에 따라 얼마나 달라지는지 보여 준다.</p><div class="city-list"><span>리에나 <small>기업수도</small></span><span>벨마르 <small>항만공업</small></span><span>오르센 <small>구산업</small></span></div></div></div>
-            <div class="nation-panel" role="tabpanel" id="nation-panel-dravan" aria-labelledby="nation-tab-dravan" data-nation-panel="dravan" hidden><span class="nation-glyph" aria-hidden="true">D</span><div><span class="detail-code">DRAVAN / PUBLIC FILE</span><h4>이 길은 누가 지키는가</h4><p>코르가의 광산과 라브칸의 폐전선에서 원광과 회수품이 나온다. 자원 곁에 살아도 고급 정제시설과 치료에 닿기는 어려울 수 있다.</p><div class="city-list"><span>바르단 <small>수도</small></span><span>코르가 <small>광산</small></span><span>라브칸 <small>폐전선</small></span></div></div></div>
           </div>
         </div>
       </section>
