@@ -27,7 +27,7 @@
 .atlas-relief-ring,.atlas-relief-rib{fill:none;stroke:#d8e4c8;stroke-opacity:.48;stroke-width:1;vector-effect:non-scaling-stroke}
 .atlas-relief-rib{stroke-opacity:.28}
 .atlas-scan{animation:atlas-survey 16s linear infinite;pointer-events:none}
-.atlas-land{fill:rgba(13,52,72,.22);stroke:#9bd9e5;stroke-opacity:.8;stroke-width:2;pointer-events:none}
+.atlas-land{fill:rgba(13,52,72,.055);stroke:#9bd9e5;stroke-opacity:.46;stroke-width:1.3;pointer-events:none}
 .atlas-region{fill:rgba(0,0,0,.001);stroke:none;cursor:pointer;transition:fill .2s}
 .atlas-region:hover,.atlas-region.is-active{fill:rgba(94,188,210,.1)}
 .atlas-svg-route{fill:none;stroke:#a6e3ee;stroke-width:1.5;stroke-opacity:.46;stroke-dasharray:6 5;vector-effect:non-scaling-stroke}

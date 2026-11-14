@@ -184,36 +184,35 @@ function terrainGeometry(nation, outline) {
   return geometry;
 }
 
-function terrainContours(outline) {
-  const segments = [];
-  const step = 8;
-  const levels = [12, 22, 35, 50, 68, 85];
-  const point = (x, y) => [x - 500, heightAt(null, x, y) + 2.4, y - 310];
+function terrainDots(outline) {
+  const positions = [];
+  const colors = [];
+  const colorCache = Object.fromEntries(Object.entries(nationColors).map(([nation, value]) =>
+    [nation, new THREE.Color(value)]));
+  const light = new THREE.Color('#effdff');
+  const step = 5.3;
   for (let y = 55; y < 570; y += step) {
     for (let x = 50; x < 935; x += step) {
-      if (!contains(outline, x + step / 2, y + step / 2)) continue;
-      const corners = [[x, y], [x + step, y], [x + step, y + step], [x, y + step]];
-      const heights = corners.map(([px, py]) => heightAt(null, px, py));
-      for (const level of levels) {
-        const crossings = [];
-        for (let edge = 0; edge < 4; edge += 1) {
-          const next = (edge + 1) % 4;
-          if ((heights[edge] < level) === (heights[next] < level)) continue;
-          const t = (level - heights[edge]) / (heights[next] - heights[edge]);
-          const px = corners[edge][0] + (corners[next][0] - corners[edge][0]) * t;
-          const py = corners[edge][1] + (corners[next][1] - corners[edge][1]) * t;
-          crossings.push(point(px, py));
-        }
-        if (crossings.length === 2) segments.push(...crossings[0], ...crossings[1]);
-        else if (crossings.length === 4) segments.push(...crossings[0], ...crossings[1], ...crossings[2], ...crossings[3]);
-      }
+      if (!contains(outline, x, y)) continue;
+      const rise = heightAt(null, x, y);
+      positions.push(x - 500, rise + 2.8, y - 310);
+      const color = colorCache[nationAt(x, y)].clone().lerp(light, .28 + Math.min(.32, rise / 180));
+      color.multiplyScalar(.66 + Math.min(.3, rise / 170) + .08 * (y / 620));
+      colors.push(color.r, color.g, color.b);
     }
   }
   const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
-  return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
-    color: '#80bdca', transparent: true, opacity: .24, depthWrite: false
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  const halo = new THREE.Points(geometry, new THREE.PointsMaterial({
+    size: 4.5, sizeAttenuation: false, vertexColors: true,
+    transparent: true, opacity: .09, depthWrite: false, blending: THREE.AdditiveBlending
   }));
+  const core = new THREE.Points(geometry, new THREE.PointsMaterial({
+    size: 1.6, sizeAttenuation: false, vertexColors: true,
+    transparent: true, opacity: .8, depthWrite: false, blending: THREE.AdditiveBlending
+  }));
+  return { halo, core };
 }
 
 function tracedLine(points, color, opacity = .6, lift = 3) {
@@ -364,6 +363,12 @@ function init3D() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2('#061624', .00033);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
+  const ground = new THREE.GridHelper(1500, 90, '#42657a', '#244454');
+  ground.position.y = -22;
+  ground.material.transparent = true;
+  ground.material.opacity = .1;
+  ground.material.depthWrite = false;
+  scene.add(ground);
   const world = new THREE.Group();
   scene.add(world);
   const pickMeshes = [];
@@ -408,16 +413,16 @@ function init3D() {
   pickMeshes.push(surface);
   const reliefLayer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
     vertexColors: true, side: THREE.DoubleSide, transparent: true,
-    opacity: .24, depthWrite: false
+    opacity: .055, depthWrite: false
   }));
   reliefLayer.renderOrder = 1;
   world.add(reliefLayer);
 
-  const contours = terrainContours(outline);
-  world.add(contours);
+  const dots = terrainDots(outline);
+  world.add(dots.halo, dots.core);
   const coastPoints = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(null, x, y) + 3, y - 310));
   world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(coastPoints), new THREE.LineBasicMaterial({
-    color: '#8ddce9', transparent: true, opacity: .79, depthWrite: false
+    color: '#8ddce9', transparent: true, opacity: .46, depthWrite: false
   })));
   const coastSoundings = [];
   for (let index = 0; index < coastPoints.length; index += 13) {
@@ -427,7 +432,7 @@ function init3D() {
   const soundings = new THREE.BufferGeometry();
   soundings.setAttribute('position', new THREE.Float32BufferAttribute(coastSoundings, 3));
   world.add(new THREE.LineSegments(soundings, new THREE.LineBasicMaterial({
-    color: '#4d9eae', transparent: true, opacity: .2, depthWrite: false
+    color: '#4d9eae', transparent: true, opacity: .12, depthWrite: false
   })));
 
   const routes = [
@@ -439,19 +444,17 @@ function init3D() {
     [[750, 267], [708, 331], [570, 415]]
   ];
   routes.forEach((points, index) => {
-    world.add(tracedLine(points, index < 2 ? '#a7dce6' : '#71bacb', index < 2 ? .62 : .48, 3.7));
+    world.add(tracedLine(points, index < 2 ? '#a7dce6' : '#71bacb', index < 2 ? .26 : .19, 3.7));
   });
   const frontiers = [
     [[338, 103], [371, 155], [414, 242], [450, 310], [438, 397], [469, 486], [452, 556]],
     [[450, 310], [535, 337], [618, 329], [700, 347], [780, 341], [860, 349], [918, 365]]
   ];
   frontiers.forEach(points => {
-    const border = tracedLine(points, '#d6ae79', .56, 4.5);
+    const border = tracedLine(points, '#d6ae79', .28, 4.5);
     world.add(border);
     borderLines.push(border);
   });
-  world.add(tracedLine([[159, 319], [201, 343], [268, 384], [316, 332]], '#dcad74', .43, 4));
-  world.add(tracedLine([[178, 423], [241, 407], [289, 447], [346, 400]], '#dcad74', .4, 4));
 
   cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
     const rise = heightAt(nation, x, y);
@@ -564,7 +567,9 @@ function init3D() {
       currentState = state;
       resize();
       const aspect = width / Math.max(1, height);
-      contours.material.opacity = aspect < .9 ? .16 : .24;
+      const perspective = Math.max(0, Math.min(1, (state.tilt - 48) / 10));
+      dots.core.material.size = 1.6 - .25 * perspective;
+      dots.halo.material.size = 4.5 - .8 * perspective;
       world.scale.set(horizontalScale(aspect, state.scale), 1, aspect < .9 ? 1.25 : 1);
       world.updateMatrixWorld(true);
       const viewWidth = (aspect < .9 ? 520 : 1180) / state.scale;
@@ -648,7 +653,7 @@ function init3D() {
     setActive(nation) {
       if (nation === activeNation) return;
       activeNation = nation;
-      borderLines.forEach(line => { line.material.opacity = nation ? .78 : .56; });
+      borderLines.forEach(line => { line.material.opacity = nation ? .52 : .28; });
       draw();
     },
     resetMarkers() {

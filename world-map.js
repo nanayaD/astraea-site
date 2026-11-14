@@ -35,7 +35,7 @@ const nationMarkers = [...document.querySelectorAll('.atlas-nation')];
 const cityMarkers = [...document.querySelectorAll('.atlas-city')];
 const nationRegions = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
 const cityRevealScale = 1.25;
-const overviewState = { x: 0, y: 0, scale: 1, angle: 0, tilt: 24, focusY: 0 };
+const overviewState = { x: 0, y: 0, scale: 1, angle: 0, tilt: 48, focusY: 0 };
 const mapState = { ...overviewState };
 let atlas3d = null;
 let flightFrame = 0;
@@ -131,7 +131,8 @@ function buildTerrainMesh() {
     transform: `translate(0 ${offset})`
   })));
   const surface = make('g', { 'clip-path': 'url(#atlas-land-clip)' });
-  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: '#326d77', opacity: .2 }));
+  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: '#326d77', opacity: .055 }));
+  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
   for (const nation of ['dravan', 'kalden', 'serein']) surface.append(ridgeFor(nation));
   surface.append(make('path', {
     class: 'atlas-svg-route',
@@ -283,7 +284,7 @@ function openNation(id, anchor) {
   closePopup();
   setFocusedCity(null);
   atlas3d.setActive(id);
-  flyTo(atlas3d.focusFor('nation', id, { scale: 1.48, angle: 0, tilt: 44 }), 950, show);
+  flyTo(atlas3d.focusFor('nation', id, { scale: 1.48, angle: 0, tilt: 58 }), 950, show);
 }
 
 function openCity(id, anchor) {
@@ -303,7 +304,7 @@ function openCity(id, anchor) {
   setFocusedCity(id);
   atlas3d.setActive(city.nation);
   const sideAngle = ['brek', 'rienna', 'korga'].includes(id) ? -18 : 18;
-  flyTo(atlas3d.focusFor('city', id, { scale: 3, angle: sideAngle, tilt: 64 }), 1100, show);
+  flyTo(atlas3d.focusFor('city', id, { scale: 3, angle: sideAngle, tilt: 70 }), 1100, show);
 }
 
 function setFocusedCity(id) {
