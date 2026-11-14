@@ -1,4 +1,5 @@
 import * as THREE from './vendor/three/three.module.js';
+import { terrainStampSize, terrainStamps } from './assets/terrain-stamps.js';
 
 const viewport = document.querySelector('#atlas-viewport');
 const canvasHost = document.querySelector('#atlas-webgl');
@@ -10,9 +11,76 @@ const peaks = [[140, 310, 37, 85, 98], [330, 220, 30, 105, 80],
   [515, 148, 54, 175, 110], [723, 151, 36, 104, 90],
   [549, 365, 17, 112, 76], [650, 500, 11, 105, 65],
   [215, 382, -32, 38, 35], [284, 443, -25, 42, 37]];
+const cityReliefOrder = ['harven', 'brek', 'tork', 'rienna', 'belmar', 'orsen', 'bardan', 'ravkan'];
+const cityReliefCenters = cityButtons.filter(button => button.dataset.mapCity !== 'korga').map(button => ({
+  x: parseFloat(button.style.left) * 10,
+  y: parseFloat(button.style.top) * 6.2,
+  index: cityReliefOrder.indexOf(button.dataset.mapCity)
+}));
+const terrainPieces = [
+  [-73, 49, 34, 29, 'cliff_blockSlope_stone', 0, 5.3],
+  [69, 53, 32, 31, 'cliff_diagonal_stone', 1, 4.4],
+  [-70, -48, 28, 25, 'cliff_diagonal_stone', 2, 3.4],
+  [73, -48, 31, 27, 'cliff_blockSlope_stone', 3, 3.1]
+];
+function terrainSourceHeight(name, u, v) {
+  const n = terrainStampSize;
+  const x = Math.max(0, Math.min(n - 1, u * (n - 1)));
+  const y = Math.max(0, Math.min(n - 1, v * (n - 1)));
+  const ix = Math.min(n - 2, Math.floor(x));
+  const iy = Math.min(n - 2, Math.floor(y));
+  const fx = x - ix, fy = y - iy;
+  const samples = terrainStamps[name];
+  const a = samples[iy * n + ix] * (1 - fx) + samples[iy * n + ix + 1] * fx;
+  const b = samples[(iy + 1) * n + ix] * (1 - fx) + samples[(iy + 1) * n + ix + 1] * fx;
+  return a * (1 - fy) + b * fy;
+}
+function sourceRelief(x, y) {
+  let relief = 0;
+  cityReliefCenters.forEach(city => {
+    if (Math.abs(x - city.x) > 110 || Math.abs(y - city.y) > 95) return;
+    for (const [sx, sy, rx, ry, name, turn, amplitude] of terrainPieces) {
+      let dx = (x - city.x - sx) / rx;
+      let dy = (y - city.y - sy) / ry;
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) continue;
+      for (let i = 0; i < (turn + city.index) % 4; i++) [dx, dy] = [-dy, dx];
+      const fade = (1 - Math.abs(dx)) ** 2 * (1 - Math.abs(dy)) ** 2;
+      relief += amplitude * terrainSourceHeight(name, (dx + 1) * .5, (dy + 1) * .5) * fade;
+    }
+  });
+  return relief;
+}
 const nationColors = {
   dravan: '#67c4d3', kalden: '#b1e8ed', serein: '#80d3eb'
 };
+
+const citySurveyLoads = new Map();
+function loadCitySurvey(id) {
+  if (citySurveyLoads.has(id)) return citySurveyLoads.get(id);
+  const request = fetch(`./assets/cities/city-${id}-v3.bin`).then(async response => {
+    if (!response.ok) throw new Error(`City survey ${id}: ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    const view = new DataView(buffer);
+    if (view.getUint32(0, true) !== 0x33545341) throw new Error(`Invalid city survey: ${id}`);
+    const buildingCount = view.getUint32(4, true);
+    const terrainCount = view.getUint32(8, true);
+    if (buffer.byteLength !== 12 + (buildingCount + terrainCount) * 24) {
+      throw new Error(`Incomplete city survey: ${id}`);
+    }
+    const geometry = (offset, count) => {
+      const positions = new Float32Array(buffer, offset, count * 6);
+      const result = new THREE.BufferGeometry();
+      result.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      return result;
+    };
+    return {
+      buildings: geometry(12, buildingCount),
+      terrain: geometry(12 + buildingCount * 24, terrainCount)
+    };
+  });
+  citySurveyLoads.set(id, request);
+  return request;
+}
 
 function heightAt(_nation, x, y) {
   const relief = peaks.reduce((height, [px, py, rise, rx, ry]) => {
@@ -20,7 +88,7 @@ function heightAt(_nation, x, y) {
     const dy = (y - py) / ry;
     return height + rise * Math.exp(-.5 * (dx * dx + dy * dy));
   }, 3);
-  return Math.max(1, relief + 3 * Math.sin(x * .022) * Math.cos(y * .029));
+  return Math.max(1, relief + sourceRelief(x, y) + 3 * Math.sin(x * .022) * Math.cos(y * .029));
 }
 
 function nationAt(x, y) {
@@ -444,8 +512,60 @@ function init3D() {
     beacon.add(model.group);
     beacon.visible = true;
     world.add(beacon);
-    cityBeacons.push({ id, beacon, ...model });
+    cityBeacons.push({ id, beacon, survey: null, ...model });
   });
+
+  async function showCitySurvey(id) {
+    const city = cityBeacons.find(item => item.id === id);
+    if (!city || city.survey) return;
+    try {
+      const { buildings, terrain } = await loadCitySurvey(id);
+      const marker = cityMarkers.find(item => item.id === id);
+      const centreRise = heightAt(marker.nation, marker.x, marker.y);
+      const fitToLand = (source, isTerrain) => {
+        const input = source.getAttribute('position').array;
+        const points = [];
+        const colors = [];
+        const cyan = new THREE.Color('#56b7c7');
+        for (let i = 0; i < input.length; i += 6) {
+          const ax = input[i], az = input[i + 2], bx = input[i + 3], bz = input[i + 5];
+          if (isTerrain && (!contains(outline, marker.x + ax, marker.y + az)
+            || !contains(outline, marker.x + bx, marker.y + bz))) continue;
+          for (let j = 0; j < 6; j += 3) {
+            const x = input[i + j];
+            const z = input[i + j + 2];
+            const landRise = heightAt(marker.nation, marker.x + x, marker.y + z) - centreRise;
+            points.push(x, input[i + j + 1] + landRise + 3, z);
+            if (isTerrain) {
+              const radius = Math.hypot(x / 95, z / 72);
+              const fade = Math.max(0, Math.min(1, (.68 - radius) / .32)) ** 2;
+              colors.push(cyan.r * fade, cyan.g * fade, cyan.b * fade);
+            }
+          }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+        if (isTerrain) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        return geometry;
+      };
+      const group = new THREE.Group();
+      group.add(new THREE.LineSegments(fitToLand(terrain, true), new THREE.LineBasicMaterial({
+        vertexColors: true, transparent: true, opacity: .2, depthWrite: false,
+        blending: THREE.AdditiveBlending
+      })));
+      group.add(new THREE.LineSegments(fitToLand(buildings, false), new THREE.LineBasicMaterial({
+        color: '#6fd5e6', transparent: true, opacity: id === 'korga' ? .23 : .38,
+        depthWrite: false
+      })));
+      terrain.dispose();
+      buildings.dispose();
+      city.beacon.add(group);
+      city.survey = group;
+      if (currentState) adapter.update(currentState, viewport.classList.contains('show-cities'));
+    } catch (error) {
+      console.warn('City survey could not be loaded; keeping the map model.', error);
+    }
+  }
 
   const raycaster = new THREE.Raycaster();
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -520,10 +640,13 @@ function init3D() {
         anchor.style.top = `${(1 - point.y) * height / 2}px`;
       });
       cityMarkers.forEach(marker => projectMarker(marker, 48));
-      cityBeacons.forEach(({ id, beacon, buildings, street }) => {
+      cityBeacons.forEach(({ id, beacon, buildings, street, group, survey }) => {
         beacon.visible = !focusedCity || focusedCity === id;
         buildings.visible = state.scale > 1.85 && (!focusedCity || focusedCity === id);
         street.material.opacity = focusedCity === id ? .74 : .56;
+        const showSurvey = Boolean(survey && focusedCity === id && state.scale > 1.85);
+        group.visible = !showSurvey;
+        if (survey) survey.visible = showSurvey;
       });
       draw();
     },
@@ -564,6 +687,7 @@ function init3D() {
     anchorForNation(nation) { return nationAnchors.get(nation); },
     setFocusCity(id) {
       focusedCity = id;
+      if (id) showCitySurvey(id);
       cityBeacons.forEach(({ id: cityId, beacon }) => {
         beacon.visible = !id || id === cityId;
       });
