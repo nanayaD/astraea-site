@@ -35,7 +35,8 @@ const nationMarkers = [...document.querySelectorAll('.atlas-nation')];
 const cityMarkers = [...document.querySelectorAll('.atlas-city')];
 const nationRegions = [...document.querySelectorAll('.atlas-region[data-map-nation]')];
 const cityRevealScale = 1.25;
-const mapState = { x: 0, y: 0, scale: .9, angle: 0 };
+const mapState = { x: 0, y: 0, scale: .9, angle: 0, tilt: 48 };
+let atlas3d = null;
 
 function buildTerrainMesh() {
   const svg = atlasCanvas.querySelector('.atlas-svg');
@@ -199,6 +200,7 @@ function positionPopup() {
 
 function applyMap() {
   mapState.scale = clamp(mapState.scale, .8, 2.5);
+  mapState.tilt = clamp(mapState.tilt, 30, 70);
   const showCities = mapState.scale >= cityRevealScale;
   if (atlasViewport.classList.contains('show-cities') !== showCities) {
     closePopup();
@@ -208,10 +210,17 @@ function applyMap() {
   const yLimit = atlasViewport.clientHeight * mapState.scale * .65;
   mapState.x = clamp(mapState.x, -xLimit, xLimit);
   mapState.y = clamp(mapState.y, -yLimit, yLimit);
-  atlasCanvas.style.transform = `translate(${mapState.x}px, ${mapState.y}px) rotate(${mapState.angle}deg) scale(${mapState.scale})`;
-  atlasCanvas.style.setProperty('--counter-angle', `${-mapState.angle}deg`);
+  if (atlas3d) {
+    atlasCanvas.style.transform = 'none';
+    atlasCanvas.style.setProperty('--counter-angle', '0deg');
+    atlas3d.update(mapState, showCities);
+  } else {
+    atlasCanvas.style.transform = `translate(${mapState.x}px, ${mapState.y}px) rotate(${mapState.angle}deg) scale(${mapState.scale})`;
+    atlasCanvas.style.setProperty('--counter-angle', `${-mapState.angle}deg`);
+  }
   document.querySelector('#atlas-zoom').textContent = `${Math.round(mapState.scale * 100)}%`;
   document.querySelector('#atlas-angle').textContent = `${Math.round(mapState.angle)}°`;
+  document.querySelector('#atlas-tilt').textContent = `${Math.round(mapState.tilt)}°`;
   document.querySelector('#atlas-layer').textContent = showCities ? 'CITIES' : 'NATIONS';
   document.querySelector('#atlas-compass-needle').style.transform = `rotate(${-mapState.angle}deg)`;
   requestAnimationFrame(positionPopup);
@@ -222,6 +231,7 @@ function highlightSelection() {
   nationRegions.forEach(region => region.classList.toggle('is-active', region.dataset.mapNation === nationId));
   nationMarkers.forEach(marker => marker.classList.toggle('is-active', activeSelection?.type === 'nation' && marker.dataset.mapNation === activeSelection.id));
   cityMarkers.forEach(marker => marker.classList.toggle('is-active', activeSelection?.type === 'city' && marker.dataset.mapCity === activeSelection.id));
+  atlas3d?.setActive(nationId);
 }
 
 function showPopup({ code, title, subtitle, copy, links }, anchor, selection) {
@@ -249,6 +259,7 @@ function showPopup({ code, title, subtitle, copy, links }, anchor, selection) {
 function openNation(id, anchor) {
   const nation = atlasNations[id];
   if (!nation) return;
+  if (atlas3d) anchor = atlas3d.anchorForNation(id);
   showPopup({ code: nation.code, title: nation.name, subtitle: nation.subtitle, copy: nation.copy, links: [] }, anchor, { type: 'nation', id });
 }
 
@@ -295,7 +306,8 @@ document.querySelectorAll('[data-map-control]').forEach(button => button.addEven
     case 'zoom-out': mapState.scale /= 1.2; break;
     case 'rotate-left': mapState.angle -= 15; break;
     case 'rotate-right': mapState.angle += 15; break;
-    case 'reset': Object.assign(mapState, { x: 0, y: 0, scale: .9, angle: 0 }); break;
+    case 'tilt': mapState.tilt = mapState.tilt < 40 ? 48 : mapState.tilt < 58 ? 65 : 30; break;
+    case 'reset': Object.assign(mapState, { x: 0, y: 0, scale: .9, angle: 0, tilt: 48 }); break;
   }
   applyMap();
 }));
@@ -358,12 +370,15 @@ atlasViewport.addEventListener('pointermove', event => {
 function finishPointer(event) {
   if (!pointers.has(event.pointerId)) return;
   const selectedRegion = pointerRegions.get(event.pointerId);
+  const pickedNation = atlas3d && !movedDuringPointer && pointers.size === 1 && event.type === 'pointerup'
+    ? atlas3d.pickNation(event.clientX, event.clientY) : null;
   pointerRegions.delete(event.pointerId);
   pointers.delete(event.pointerId);
-  if (movedDuringPointer || selectedRegion) suppressMapClickUntil = Date.now() + 220;
+  if (movedDuringPointer || selectedRegion || pickedNation) suppressMapClickUntil = Date.now() + 220;
   if (selectedRegion && !movedDuringPointer && event.type === 'pointerup') {
     openNation(selectedRegion, document.querySelector(`.atlas-region[data-map-nation="${selectedRegion}"]`));
   }
+  if (pickedNation) openNation(pickedNation);
   if (pointers.size === 1) {
     const point = [...pointers.values()][0];
     panStart = { x: point.x, y: point.y, mapX: mapState.x, mapY: mapState.y };
@@ -379,5 +394,20 @@ atlasViewport.addEventListener('pointerup', finishPointer);
 atlasViewport.addEventListener('pointercancel', finishPointer);
 atlasCanvas.addEventListener('transitionend', positionPopup);
 window.addEventListener('resize', () => { applyMap(); positionPopup(); });
+
+window.atlasMap = {
+  connect3D(adapter) {
+    atlas3d = adapter;
+    atlasViewport.classList.add('is-3d');
+    applyMap();
+  },
+  disconnect3D(adapter) {
+    if (atlas3d !== adapter) return;
+    atlas3d.resetMarkers();
+    atlas3d = null;
+    atlasViewport.classList.remove('is-3d');
+    applyMap();
+  }
+};
 
 applyMap();
