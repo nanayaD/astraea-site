@@ -97,14 +97,15 @@
               <div class="atlas-viewport" id="atlas-viewport" tabindex="-1" aria-label="드래그와 확대, 회전이 가능한 임시 지도">
                 <div class="atlas-canvas" id="atlas-canvas">
                   <svg class="atlas-svg" viewBox="0 0 1000 620" preserveAspectRatio="none" aria-hidden="true">
-                    <defs><pattern id="atlas-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 H 0 V 50" fill="none" stroke="#94bac0" stroke-opacity=".12" stroke-width="1"/></pattern><pattern id="atlas-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M 0 0 V 9" stroke="#d3b687" stroke-opacity=".08" stroke-width="2"/></pattern></defs>
+                    <defs><pattern id="atlas-grid" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M 50 0 H 0 V 50" fill="none" stroke="#94bac0" stroke-opacity=".12" stroke-width="1"/></pattern><pattern id="atlas-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><path d="M 0 0 V 9" stroke="#d3b687" stroke-opacity=".08" stroke-width="2"/></pattern><linearGradient id="atlas-scan-gradient"><stop offset="0" stop-color="#a6e9ea" stop-opacity="0"/><stop offset=".48" stop-color="#a6e9ea" stop-opacity=".16"/><stop offset="1" stop-color="#a6e9ea" stop-opacity="0"/></linearGradient></defs>
                     <rect width="1000" height="620" fill="#0c2530"/><rect width="1000" height="620" fill="url(#atlas-grid)"/>
                     <path class="atlas-current" d="M-30 185 C145 110 215 146 334 74 S571 60 646 28 M-20 472 C126 384 232 454 355 391 S566 392 695 337 896 362 1030 280 M-20 533 C183 460 252 532 426 475 S715 476 1030 408"/>
+                    <g class="atlas-depth" id="atlas-depth" pointer-events="none"></g>
                     <path class="atlas-region atlas-dravan" data-map-nation="dravan" d="M78 183 C142 149 209 160 263 126 L319 160 347 219 402 247 383 310 421 358 400 419 346 456 328 523 264 545 203 509 126 504 93 433 55 396 73 329 47 278Z"/>
                     <path class="atlas-region atlas-kalden" data-map-nation="kalden" d="M320 81 C399 54 456 76 523 49 L596 72 650 62 721 102 799 110 838 172 827 238 778 262 738 317 681 291 625 322 571 285 510 310 444 269 389 287 361 220 310 175Z"/>
                     <path class="atlas-region atlas-serein" data-map-nation="serein" d="M495 309 L565 296 623 336 678 307 732 339 796 305 849 348 896 412 875 471 811 488 781 542 708 555 648 529 570 548 513 512 462 460 441 392Z"/>
+                    <g class="atlas-terrain" id="atlas-terrain" pointer-events="none"></g>
                     <path class="atlas-shore" d="M85 548 C137 578 224 582 280 564 M864 144 C911 152 954 177 979 208 M872 514 C938 519 970 543 1011 575"/>
-                    <g class="atlas-topography"><path d="M118 277 l24 -35 18 28 26 -42 25 38 M233 390 l18 -35 17 20 21 -30 27 38 M465 159 l21 -32 17 23 19 -33 30 39 M634 180 l23 -26 22 36 16 -20 22 32 M588 437 l18 -29 14 24 21 -36 27 45 M739 437 l26 -38 17 29 18 -23 21 29"/></g>
                     <path class="atlas-border" d="M388 288 C447 311 476 299 503 313 M421 359 C441 343 468 323 495 309"/>
                     <text class="atlas-water-label" x="78" y="90">WESTERN SURVEY / 01</text><text class="atlas-water-label" x="782" y="582">CHART / PROVISIONAL</text>
                   </svg>
