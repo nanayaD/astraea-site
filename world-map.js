@@ -42,44 +42,8 @@ let flightFrame = 0;
 let flightToken = 0;
 
 function shapeCoast() {
-  const anchors = [
-    [69, 221], [112, 198], [161, 177], [201, 158], [250, 154], [287, 131],
-    [331, 123], [359, 104], [393, 115], [429, 84], [471, 94], [516, 74],
-    [556, 89], [611, 78], [650, 94], [705, 80], [746, 100], [790, 100],
-    [831, 124], [863, 151], [889, 189], [873, 219], [912, 235], [928, 265],
-    [895, 284], [910, 317], [885, 345], [920, 365], [911, 391], [869, 408],
-    [842, 387], [816, 399], [803, 427], [833, 443], [866, 450], [882, 470],
-    [850, 479], [833, 507], [800, 517], [774, 493], [745, 530], [708, 541],
-    [677, 520], [637, 555], [604, 545], [567, 573], [526, 551], [493, 575],
-    [458, 550], [419, 566], [389, 546], [354, 542], [324, 555], [290, 529],
-    [266, 548], [242, 522], [225, 481], [205, 509], [187, 526], [162, 500],
-    [130, 493], [111, 468], [128, 441], [111, 420], [77, 402], [80, 367],
-    [53, 348], [65, 317], [49, 280], [65, 251]
-  ];
-  const sample = (p0, p1, p2, p3, t, axis) => .5 * ((2 * p1[axis])
-    + (-p0[axis] + p2[axis]) * t
-    + (2 * p0[axis] - 5 * p1[axis] + 4 * p2[axis] - p3[axis]) * t * t
-    + (-p0[axis] + 3 * p1[axis] - 3 * p2[axis] + p3[axis]) * t * t * t);
-  const points = [];
-  for (let index = 0; index < anchors.length; index += 1) {
-    const p0 = anchors[(index - 1 + anchors.length) % anchors.length];
-    const p1 = anchors[index];
-    const p2 = anchors[(index + 1) % anchors.length];
-    const p3 = anchors[(index + 2) % anchors.length];
-    for (let step = 0; step < 4; step += 1) {
-      const t = step / 4;
-      points.push([sample(p0, p1, p2, p3, t, 0), sample(p0, p1, p2, p3, t, 1)]);
-    }
-  }
-  const d = points.map(([x, y], index) => {
-    const prev = points[(index - 1 + points.length) % points.length];
-    const next = points[(index + 1) % points.length];
-    const length = Math.hypot(next[0] - prev[0], next[1] - prev[1]) || 1;
-    const noise = 1.2 * Math.sin(index * 2.17) + .8 * Math.sin(index * 5.31);
-    const px = x - (next[1] - prev[1]) / length * noise;
-    const py = y + (next[0] - prev[0]) / length * noise;
-    return `${index ? 'L' : 'M'}${px.toFixed(1)} ${py.toFixed(1)}`;
-  }).join(' ') + 'Z';
+  const d = window.astraeaCoastPath;
+  if (!d) return;
   document.querySelector('#atlas-land').setAttribute('d', d);
   document.querySelector('#atlas-land-clip path').setAttribute('d', d);
 }
@@ -88,7 +52,6 @@ shapeCoast();
 
 function buildTerrainMesh() {
   const svg = atlasCanvas.querySelector('.atlas-svg');
-  const depthLayer = svg.querySelector('#atlas-depth');
   const terrainLayer = svg.querySelector('#atlas-terrain');
   const ns = 'http://www.w3.org/2000/svg';
   const make = (name, attributes = {}) => {
@@ -97,52 +60,9 @@ function buildTerrainMesh() {
     return element;
   };
 
-  // Survey contours follow the approved landform design; city positions remain provisional.
-  const point = vertex => `${vertex.x.toFixed(1)} ${vertex.y.toFixed(1)}`;
-
-  const ridgeCenters = {
-    dravan: [239, 289, 48],
-    kalden: [486, 139, 42],
-    serein: [544, 384, 19]
-  };
-  const ridgeFor = nation => {
-    const [cx, cy, elevation] = ridgeCenters[nation];
-    const ridge = make('g', { class: 'atlas-relief' });
-    const ring = (radius, rise) => Array.from({ length: 10 }, (_, index) => {
-      const angle = index * Math.PI / 5;
-      const irregularity = 1 + .07 * Math.sin(index * 2.7 + cx);
-      return {
-        x: cx + elevation * .12 * rise + Math.cos(angle) * radius * irregularity,
-        y: cy - elevation * rise + Math.sin(angle) * radius * .5 * irregularity
-      };
-    });
-    const rings = [ring(81, 0), ring(50, .38), ring(19, .73)];
-    rings.forEach(vertices => ridge.append(make('path', {
-      class: 'atlas-relief-ring',
-      d: `M ${vertices.map(point).join(' L ')} Z`
-    })));
-    return ridge;
-  };
-
-  const outline = svg.querySelector('#atlas-land').getAttribute('d');
-  [18, 11, 5].forEach((offset, layer) => depthLayer.append(make('path', {
-    class: `atlas-depth-slice atlas-depth-slice-${layer}`,
-    d: outline,
-    transform: `translate(0 ${offset})`
-  })));
   const surface = make('g', { 'clip-path': 'url(#atlas-land-clip)' });
   surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: '#326d77', opacity: .055 }));
   surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
-  for (const nation of ['dravan', 'kalden', 'serein']) surface.append(ridgeFor(nation));
-  surface.append(make('path', {
-    class: 'atlas-svg-route',
-    d: 'M180 248 C254 263 284 321 350 353 C405 327 427 216 460 130 C544 153 610 144 680 155 C723 185 729 226 750 267 M350 353 C282 379 278 431 250 459 M350 353 C432 357 504 394 570 415 C657 422 722 452 780 465 M570 415 C605 465 633 495 670 521'
-  }));
-  surface.append(make('path', {
-    class: 'atlas-svg-vein',
-    d: 'M133 334 C169 311 182 365 213 353 S251 389 271 400 M191 421 C222 393 241 444 281 438 M300 298 C315 307 330 302 343 324'
-  }));
-  surface.append(make('rect', { class: 'atlas-scan', x: -340, y: -20, width: 250, height: 690, fill: 'url(#atlas-scan-gradient)' }));
   terrainLayer.append(surface);
 }
 

@@ -1,5 +1,4 @@
 import * as THREE from './vendor/three/three.module.js';
-import { terrainStampSize, terrainStamps } from './assets/terrain-stamps.js';
 
 const viewport = document.querySelector('#atlas-viewport');
 const canvasHost = document.querySelector('#atlas-webgl');
@@ -7,49 +6,8 @@ const atlasCanvas = document.querySelector('#atlas-canvas');
 const landPath = document.querySelector('#atlas-land');
 const nationButtons = [...document.querySelectorAll('.atlas-nation')];
 const cityButtons = [...document.querySelectorAll('.atlas-city')];
-const peaks = [[140, 310, 37, 85, 98], [330, 220, 30, 105, 80],
-  [515, 148, 54, 175, 110], [723, 151, 36, 104, 90],
-  [549, 365, 17, 112, 76], [650, 500, 11, 105, 65],
-  [215, 382, -32, 38, 35], [284, 443, -25, 42, 37]];
-const cityReliefOrder = ['harven', 'brek', 'tork', 'rienna', 'belmar', 'orsen', 'bardan', 'ravkan'];
-const cityReliefCenters = cityButtons.filter(button => button.dataset.mapCity !== 'korga').map(button => ({
-  x: parseFloat(button.style.left) * 10,
-  y: parseFloat(button.style.top) * 6.2,
-  index: cityReliefOrder.indexOf(button.dataset.mapCity)
-}));
-const terrainPieces = [
-  [-73, 49, 34, 29, 'cliff_blockSlope_stone', 0, 5.3],
-  [69, 53, 32, 31, 'cliff_diagonal_stone', 1, 4.4],
-  [-70, -48, 28, 25, 'cliff_diagonal_stone', 2, 3.4],
-  [73, -48, 31, 27, 'cliff_blockSlope_stone', 3, 3.1]
-];
-function terrainSourceHeight(name, u, v) {
-  const n = terrainStampSize;
-  const x = Math.max(0, Math.min(n - 1, u * (n - 1)));
-  const y = Math.max(0, Math.min(n - 1, v * (n - 1)));
-  const ix = Math.min(n - 2, Math.floor(x));
-  const iy = Math.min(n - 2, Math.floor(y));
-  const fx = x - ix, fy = y - iy;
-  const samples = terrainStamps[name];
-  const a = samples[iy * n + ix] * (1 - fx) + samples[iy * n + ix + 1] * fx;
-  const b = samples[(iy + 1) * n + ix] * (1 - fx) + samples[(iy + 1) * n + ix + 1] * fx;
-  return a * (1 - fy) + b * fy;
-}
-function sourceRelief(x, y) {
-  let relief = 0;
-  cityReliefCenters.forEach(city => {
-    if (Math.abs(x - city.x) > 110 || Math.abs(y - city.y) > 95) return;
-    for (const [sx, sy, rx, ry, name, turn, amplitude] of terrainPieces) {
-      let dx = (x - city.x - sx) / rx;
-      let dy = (y - city.y - sy) / ry;
-      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) continue;
-      for (let i = 0; i < (turn + city.index) % 4; i++) [dx, dy] = [-dy, dx];
-      const fade = (1 - Math.abs(dx)) ** 2 * (1 - Math.abs(dy)) ** 2;
-      relief += amplitude * terrainSourceHeight(name, (dx + 1) * .5, (dy + 1) * .5) * fade;
-    }
-  });
-  return relief;
-}
+let elevationGrid;
+let citySites = [];
 const nationColors = {
   dravan: '#67c4d3', kalden: '#b1e8ed', serein: '#80d3eb'
 };
@@ -82,13 +40,32 @@ function loadCitySurvey(id) {
   return request;
 }
 
+function baseHeightAt(x, y) {
+  const gx = Math.max(0, Math.min(511, x / 1000 * 511));
+  const gy = Math.max(0, Math.min(287, y / 620 * 287));
+  const ix = Math.min(510, Math.floor(gx));
+  const iy = Math.min(286, Math.floor(gy));
+  const fx = gx - ix, fy = gy - iy;
+  const at = (px, py) => elevationGrid[py * 512 + px];
+  const a = at(ix, iy) * (1 - fx) + at(ix + 1, iy) * fx;
+  const b = at(ix, iy + 1) * (1 - fx) + at(ix + 1, iy + 1) * fx;
+  return 2 + (a * (1 - fy) + b * fy) * .043;
+}
+
 function heightAt(_nation, x, y) {
-  const relief = peaks.reduce((height, [px, py, rise, rx, ry]) => {
-    const dx = (x - px) / rx;
-    const dy = (y - py) / ry;
-    return height + rise * Math.exp(-.5 * (dx * dx + dy * dy));
-  }, 3);
-  return Math.max(1, relief + sourceRelief(x, y) + 3 * Math.sin(x * .022) * Math.cos(y * .029));
+  const natural = baseHeightAt(x, y);
+  let weight = 0;
+  let graded = 0;
+  for (const site of citySites) {
+    const distance = Math.hypot(x - site.x, y - site.y);
+    if (distance >= 110) continue;
+    const t = Math.max(0, Math.min(1, (distance - 68) / 42));
+    const smooth = t * t * (3 - 2 * t);
+    const influence = (1 - smooth) ** 4;
+    weight += influence;
+    graded += influence * site.height;
+  }
+  return weight ? natural * (1 - Math.min(1, weight)) + graded / weight * Math.min(1, weight) : natural;
 }
 
 function nationAt(x, y) {
@@ -215,20 +192,6 @@ function terrainDots(outline) {
   return { halo, core };
 }
 
-function tracedLine(points, color, opacity = .6, lift = 3) {
-  const controls = points.map(([x, y]) => new THREE.Vector3(x, 0, y));
-  const curve = new THREE.CatmullRomCurve3(controls, false, 'centripetal');
-  const count = Math.max(20, points.length * 24);
-  const vertices = [];
-  for (let index = 0; index <= count; index += 1) {
-    const sample = curve.getPoint(index / count);
-    vertices.push(new THREE.Vector3(sample.x - 500, heightAt(null, sample.x, sample.z) + lift, sample.z - 310));
-  }
-  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(vertices), new THREE.LineBasicMaterial({
-    color, transparent: true, opacity, depthWrite: false
-  }));
-}
-
 function lineModel(cityIndex, nation, cx, cy, centerRise, outline) {
   const roads = [];
   const architecture = [];
@@ -245,8 +208,8 @@ function lineModel(cityIndex, nation, cx, cy, centerRise, outline) {
     { count: 20, height: 17, spread: 88, core: 24 }
   ];
   const spec = specs[cityIndex];
-  const ground = (dx, dz) => heightAt(nation, cx + dx, cy + dz) - centerRise + 3;
-  const inside = (dx, dz) => contains(outline, cx + dx, cy + dz);
+  const ground = (dx, dz) => heightAt(nation, cx + dx * .7, cy + dz * .7) - centerRise + 3;
+  const inside = (dx, dz) => contains(outline, cx + dx * .7, cy + dz * .7);
   const roadPoint = (dx, dz) => [dx, ground(dx, dz), dz];
   const angle = [.04, -.15, .32, -.2, .22, -.36, .12, -.24, .19][cityIndex];
   const rotate = ([u, v]) => [u * Math.cos(angle) - v * Math.sin(angle),
@@ -373,7 +336,6 @@ function init3D() {
   scene.add(world);
   const pickMeshes = [];
   const cityPickMeshes = [];
-  const borderLines = [];
   const cityBeacons = [];
   const nationMarkers = mapMarkers(nationButtons, button => button.dataset.mapNation);
   const cityMarkers = mapMarkers(cityButtons, button => ({
@@ -411,55 +373,14 @@ function init3D() {
   surface.userData.land = true;
   world.add(surface);
   pickMeshes.push(surface);
-  const reliefLayer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-    vertexColors: true, side: THREE.DoubleSide, transparent: true,
-    opacity: .055, depthWrite: false
-  }));
-  reliefLayer.renderOrder = 1;
-  world.add(reliefLayer);
-
   const dots = terrainDots(outline);
   world.add(dots.halo, dots.core);
-  const coastPoints = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(null, x, y) + 3, y - 310));
-  world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(coastPoints), new THREE.LineBasicMaterial({
-    color: '#8ddce9', transparent: true, opacity: .46, depthWrite: false
-  })));
-  const coastSoundings = [];
-  for (let index = 0; index < coastPoints.length; index += 13) {
-    const [x, z] = [outline[index].x - 500, outline[index].y - 310];
-    coastSoundings.push(...coastPoints[index].toArray(), x, -9, z);
-  }
-  const soundings = new THREE.BufferGeometry();
-  soundings.setAttribute('position', new THREE.Float32BufferAttribute(coastSoundings, 3));
-  world.add(new THREE.LineSegments(soundings, new THREE.LineBasicMaterial({
-    color: '#4d9eae', transparent: true, opacity: .12, depthWrite: false
-  })));
-
-  const routes = [
-    [[180, 248], [272, 292], [350, 353], [427, 239], [460, 130]],
-    [[460, 130], [567, 145], [680, 155], [750, 267]],
-    [[250, 459], [303, 406], [350, 353], [455, 369], [570, 415]],
-    [[570, 415], [665, 431], [780, 465]],
-    [[570, 415], [614, 475], [670, 521]],
-    [[750, 267], [708, 331], [570, 415]]
-  ];
-  routes.forEach((points, index) => {
-    world.add(tracedLine(points, index < 2 ? '#a7dce6' : '#71bacb', index < 2 ? .26 : .19, 3.7));
-  });
-  const frontiers = [
-    [[338, 103], [371, 155], [414, 242], [450, 310], [438, 397], [469, 486], [452, 556]],
-    [[450, 310], [535, 337], [618, 329], [700, 347], [780, 341], [860, 349], [918, 365]]
-  ];
-  frontiers.forEach(points => {
-    const border = tracedLine(points, '#d6ae79', .28, 4.5);
-    world.add(border);
-    borderLines.push(border);
-  });
 
   cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
     const rise = heightAt(nation, x, y);
     const beacon = new THREE.Group();
     beacon.position.set(x - 500, rise, y - 310);
+    beacon.scale.set(.7, 1, .7);
     const platform = new THREE.Mesh(new THREE.BoxGeometry(100, 3, 96), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false }));
     platform.position.y = 2;
     platform.userData.city = id;
@@ -478,39 +399,25 @@ function init3D() {
     try {
       const { buildings, terrain } = await loadCitySurvey(id);
       const marker = cityMarkers.find(item => item.id === id);
-      const centreRise = heightAt(marker.nation, marker.x, marker.y);
-      const fitToLand = (source, isTerrain) => {
+      const fitToLand = source => {
         const input = source.getAttribute('position').array;
         const points = [];
-        const colors = [];
-        const cyan = new THREE.Color('#56b7c7');
         for (let i = 0; i < input.length; i += 6) {
           const ax = input[i], az = input[i + 2], bx = input[i + 3], bz = input[i + 5];
-          if (isTerrain && (!contains(outline, marker.x + ax, marker.y + az)
-            || !contains(outline, marker.x + bx, marker.y + bz))) continue;
+          if (!contains(outline, marker.x + ax * .7, marker.y + az * .7)
+            || !contains(outline, marker.x + bx * .7, marker.y + bz * .7)) continue;
           for (let j = 0; j < 6; j += 3) {
             const x = input[i + j];
             const z = input[i + j + 2];
-            const landRise = heightAt(marker.nation, marker.x + x, marker.y + z) - centreRise;
-            points.push(x, input[i + j + 1] + landRise + 3, z);
-            if (isTerrain) {
-              const radius = Math.hypot(x / 95, z / 72);
-              const fade = Math.max(0, Math.min(1, (.68 - radius) / .32)) ** 2;
-              colors.push(cyan.r * fade, cyan.g * fade, cyan.b * fade);
-            }
+            points.push(x, input[i + j + 1] + 3, z);
           }
         }
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-        if (isTerrain) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         return geometry;
       };
       const group = new THREE.Group();
-      group.add(new THREE.LineSegments(fitToLand(terrain, true), new THREE.LineBasicMaterial({
-        vertexColors: true, transparent: true, opacity: .2, depthWrite: false,
-        blending: THREE.AdditiveBlending
-      })));
-      group.add(new THREE.LineSegments(fitToLand(buildings, false), new THREE.LineBasicMaterial({
+      group.add(new THREE.LineSegments(fitToLand(buildings), new THREE.LineBasicMaterial({
         color: '#6fd5e6', transparent: true, opacity: id === 'korga' ? .23 : .38,
         depthWrite: false
       })));
@@ -653,7 +560,6 @@ function init3D() {
     setActive(nation) {
       if (nation === activeNation) return;
       activeNation = nation;
-      borderLines.forEach(line => { line.material.opacity = nation ? .52 : .28; });
       draw();
     },
     resetMarkers() {
@@ -694,4 +600,22 @@ function init3D() {
   }
 }
 
-try { init3D(); } catch (error) { console.error('3D atlas setup failed; SVG atlas remains active.', error); }
+async function start3D() {
+  try {
+    const response = await fetch('./assets/atlas-elevation.bin');
+    if (!response.ok) throw new Error(`Atlas elevation: ${response.status}`);
+    const buffer = await response.arrayBuffer();
+    if (buffer.byteLength !== 512 * 288 * 2) throw new Error('Invalid atlas elevation grid');
+    elevationGrid = new Uint16Array(buffer);
+    citySites = cityButtons.map(button => {
+      const x = parseFloat(button.style.left) * 10;
+      const y = parseFloat(button.style.top) * 6.2;
+      return { x, y, height: baseHeightAt(x, y) };
+    });
+    init3D();
+  } catch (error) {
+    console.error('3D atlas setup failed; SVG atlas remains active.', error);
+  }
+}
+
+start3D();
