@@ -4,6 +4,7 @@ GitHub Pages용 정적 사이트입니다. [공개 사이트](https://nanayad.gi
 
 ## 화면 구성
 
+- 메네사이트의 포획 성질·재료 가치·의료/합성체/조사/현상재현 용도를 탐색하는 첫 화면
 - 세계의 핵심 개념과 칼덴·세레인·드라반의 대표 생활권
 - 작품 현재를 기준으로 한 상대연대 탐색
 - 아스트라이아의 다섯 층군과 일반 귀환·응급·위험물 경로
@@ -18,6 +19,7 @@ GitHub Pages용 정적 사이트입니다. [공개 사이트](https://nanayad.gi
 ## 임시 콘텐츠 교체
 
 - **메인 이미지:** `index.html`의 `data-image-slot="hero"` 요소를 실제 이미지로 교체합니다. 이미지는 `assets/`에 둡니다.
+- **메네사이트 이미지:** `ore-visual`과 `menesite.css`의 결정 도형은 원전의 공식 외형이 아닌 CSS 시안입니다. 정식 디자인이 나오면 이 영역을 교체합니다.
 - **인물 이미지:** `data-image-slot="person-01"`부터 `person-04`, 그리고 `detail-portrait`를 교체합니다.
 - **인물 이름·소개:** `index.html`의 `people-grid` 안 네 카드와 `script.js`의 `personnel` 배열에서 수정합니다. 현재 네 이름은 모두 UI 시안용 가설입니다.
 - **AI 채팅 링크:** 채팅이 완성되면 `entry-card-bottom`의 준비 중 문구를 실제 링크로 바꿉니다.
