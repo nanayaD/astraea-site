@@ -88,7 +88,6 @@ shapeCoast();
 
 function buildTerrainMesh() {
   const svg = atlasCanvas.querySelector('.atlas-svg');
-  const defs = svg.querySelector('defs');
   const depthLayer = svg.querySelector('#atlas-depth');
   const terrainLayer = svg.querySelector('#atlas-terrain');
   const ns = 'http://www.w3.org/2000/svg';
@@ -99,69 +98,7 @@ function buildTerrainMesh() {
   };
 
   // Survey contours follow the approved landform design; city positions remain provisional.
-  const peaks = [
-    [239, 289, 48, 68, 82], [287, 433, 60, 57, 72],
-    [486, 139, 42, 139, 92], [638, 171, 29, 124, 85],
-    [544, 384, 19, 79, 77], [666, 468, 14, 107, 79]
-  ];
-  const heightAt = (x, y) => peaks.reduce((height, [px, py, elevation, rx, ry]) => {
-    const dx = (x - px) / rx;
-    const dy = (y - py) / ry;
-    return height + elevation * Math.exp(-.5 * (dx * dx + dy * dy));
-  }, 0);
-  const step = 36;
-  const columns = Math.ceil(1000 / step);
-  const rows = Math.ceil(620 / step);
-  const grid = Array.from({ length: rows + 1 }, (_, row) =>
-    Array.from({ length: columns + 1 }, (_, column) => {
-      const x = column * step;
-      const y = row * step;
-      const h = heightAt(x, y);
-      return { x: x + h * .2, y: y - h * .86, h };
-    })
-  );
   const point = vertex => `${vertex.x.toFixed(1)} ${vertex.y.toFixed(1)}`;
-  const facets = ['', '', '', '', ''];
-  let rowsPath = '';
-  let columnsPath = '';
-  let diagonalsPath = '';
-
-  grid.forEach(row => {
-    rowsPath += `M ${point(row[0])} ` + row.slice(1).map(vertex => `L ${point(vertex)}`).join(' ') + ' ';
-  });
-  for (let column = 0; column <= columns; column += 1) {
-    columnsPath += `M ${point(grid[0][column])} `;
-    for (let row = 1; row <= rows; row += 1) columnsPath += `L ${point(grid[row][column])} `;
-  }
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const topLeft = grid[row][column];
-      const topRight = grid[row][column + 1];
-      const bottomLeft = grid[row + 1][column];
-      const bottomRight = grid[row + 1][column + 1];
-      const rising = (row + column) % 2 === 0;
-      const triangles = rising
-        ? [[topLeft, topRight, bottomRight], [topLeft, bottomRight, bottomLeft]]
-        : [[topLeft, topRight, bottomLeft], [topRight, bottomRight, bottomLeft]];
-      diagonalsPath += rising
-        ? `M ${point(topLeft)} L ${point(bottomRight)} `
-        : `M ${point(topRight)} L ${point(bottomLeft)} `;
-      triangles.forEach(triangle => {
-        const averageHeight = triangle.reduce((sum, vertex) => sum + vertex.h, 0) / 3;
-        const centerX = (column + .5) * step;
-        const centerY = (row + .5) * step;
-        const light = (heightAt(centerX - 12, centerY - 12) - heightAt(centerX + 12, centerY + 12)) * .12;
-        const shade = Math.max(0, Math.min(4, Math.floor(1 + averageHeight * .045 + light)));
-        facets[shade] += `M ${triangle.map(point).join(' L ')} Z `;
-      });
-    }
-  }
-
-  const geometry = make('g', { id: 'atlas-terrain-geometry' });
-  facets.forEach((d, index) => geometry.append(make('path', { class: `atlas-facet atlas-facet-${index}`, d })));
-  geometry.append(make('path', { class: 'atlas-mesh-diagonal', d: diagonalsPath }));
-  geometry.append(make('path', { class: 'atlas-mesh-grid', d: rowsPath + columnsPath }));
-  defs.append(geometry);
 
   const ridgeCenters = {
     dravan: [239, 289, 48],
@@ -180,19 +117,6 @@ function buildTerrainMesh() {
       };
     });
     const rings = [ring(81, 0), ring(50, .38), ring(19, .73)];
-    for (let level = 0; level < rings.length - 1; level += 1) {
-      for (let index = 0; index < 10; index += 1) {
-        const next = (index + 1) % 10;
-        ridge.append(make('path', {
-          class: `atlas-relief-facet atlas-relief-facet-${index % 3}`,
-          d: `M ${point(rings[level][index])} L ${point(rings[level][next])} L ${point(rings[level + 1][next])} L ${point(rings[level + 1][index])} Z`
-        }));
-        ridge.append(make('path', {
-          class: 'atlas-relief-rib',
-          d: `M ${point(rings[level][index])} L ${point(rings[level + 1][index])}`
-        }));
-      }
-    }
     rings.forEach(vertices => ridge.append(make('path', {
       class: 'atlas-relief-ring',
       d: `M ${vertices.map(point).join(' L ')} Z`
@@ -207,9 +131,7 @@ function buildTerrainMesh() {
     transform: `translate(0 ${offset})`
   })));
   const surface = make('g', { 'clip-path': 'url(#atlas-land-clip)' });
-  surface.append(make('image', { href: './assets/atlas-relief-v1.png', x: 0, y: 0, width: 1000, height: 620, preserveAspectRatio: 'none', opacity: .58 }));
-  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: 'url(#atlas-dots)' }));
-  surface.append(make('use', { href: '#atlas-terrain-geometry' }));
+  surface.append(make('rect', { x: 0, y: 0, width: 1000, height: 620, fill: '#326d77', opacity: .2 }));
   for (const nation of ['dravan', 'kalden', 'serein']) surface.append(ridgeFor(nation));
   surface.append(make('path', {
     class: 'atlas-svg-route',

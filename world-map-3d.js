@@ -120,7 +120,6 @@ function contains(points, x, y) {
 function terrainGeometry(nation, outline) {
   const positions = [];
   const colors = [];
-  const uvs = [];
   const bounds = outline.reduce((box, point) => ({
     left: Math.min(box.left, point.x), right: Math.max(box.right, point.x),
     top: Math.min(box.top, point.y), bottom: Math.max(box.bottom, point.y)
@@ -131,7 +130,6 @@ function terrainGeometry(nation, outline) {
   const appendVertex = (x, y) => {
     const height = heightAt(nation, x, y);
     positions.push(x - 500, height + 1, y - 310);
-    uvs.push(x / 1000, 1 - y / 620);
     const color = base.clone().lerp(peak, Math.min(.65, height / 150));
     colors.push(color.r, color.g, color.b);
   };
@@ -182,39 +180,14 @@ function terrainGeometry(nation, outline) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.computeVertexNormals();
   return geometry;
-}
-
-function terrainDots(outline, mobile = false) {
-  const positions = [];
-  const colors = [];
-  const high = new THREE.Color('#e4faff');
-  const step = mobile ? 14 : 7;
-  for (let y = 55, row = 0; y < 570; y += step, row += 1) {
-    for (let x = 50 + (row % 2) * step / 2; x < 935; x += step) {
-      if (!contains(outline, x, y)) continue;
-      const rise = heightAt(null, x, y);
-      positions.push(x - 500, rise + 2.8, y - 310);
-      const color = new THREE.Color(nationColors[nationAt(x, y)]).lerp(high, Math.min(.63, rise / 105));
-      colors.push(color.r, color.g, color.b);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  return new THREE.Points(geometry, new THREE.PointsMaterial({
-    size: mobile ? 2.2 : 1.65, sizeAttenuation: false, vertexColors: true,
-    transparent: true, opacity: mobile ? .83 : .67, depthWrite: false,
-    blending: THREE.AdditiveBlending
-  }));
 }
 
 function terrainContours(outline) {
   const segments = [];
   const step = 8;
-  const levels = [8, 13, 18, 24, 30, 37, 45, 53, 62, 72, 83];
+  const levels = [12, 22, 35, 50, 68, 85];
   const point = (x, y) => [x - 500, heightAt(null, x, y) + 2.4, y - 310];
   for (let y = 55; y < 570; y += step) {
     for (let x = 50; x < 935; x += step) {
@@ -239,7 +212,7 @@ function terrainContours(outline) {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(segments, 3));
   return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
-    color: '#80bdca', transparent: true, opacity: .39, depthWrite: false
+    color: '#80bdca', transparent: true, opacity: .24, depthWrite: false
   }));
 }
 
@@ -391,12 +364,6 @@ function init3D() {
   const scene = new THREE.Scene();
   scene.fog = new THREE.FogExp2('#061624', .00033);
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, 4000);
-  const ground = new THREE.GridHelper(1500, 60, '#315c70', '#173a4c');
-  ground.position.y = -22;
-  ground.material.transparent = true;
-  ground.material.opacity = .24;
-  ground.material.depthWrite = false;
-  scene.add(ground);
   const world = new THREE.Group();
   scene.add(world);
   const pickMeshes = [];
@@ -439,19 +406,15 @@ function init3D() {
   surface.userData.land = true;
   world.add(surface);
   pickMeshes.push(surface);
-  const reliefTexture = new THREE.TextureLoader().load('./assets/atlas-relief-v1.png', () => draw());
-  reliefTexture.colorSpace = THREE.SRGBColorSpace;
   const reliefLayer = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({
-    map: reliefTexture, side: THREE.DoubleSide, transparent: true,
-    opacity: .78, depthWrite: false, blending: THREE.AdditiveBlending
+    vertexColors: true, side: THREE.DoubleSide, transparent: true,
+    opacity: .24, depthWrite: false
   }));
   reliefLayer.renderOrder = 1;
   world.add(reliefLayer);
 
-  const desktopDots = terrainDots(outline);
-  const mobileDots = terrainDots(outline, true);
   const contours = terrainContours(outline);
-  world.add(desktopDots, mobileDots, contours);
+  world.add(contours);
   const coastPoints = outline.map(({ x, y }) => new THREE.Vector3(x - 500, heightAt(null, x, y) + 3, y - 310));
   world.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(coastPoints), new THREE.LineBasicMaterial({
     color: '#8ddce9', transparent: true, opacity: .79, depthWrite: false
@@ -489,15 +452,6 @@ function init3D() {
   });
   world.add(tracedLine([[159, 319], [201, 343], [268, 384], [316, 332]], '#dcad74', .43, 4));
   world.add(tracedLine([[178, 423], [241, 407], [289, 447], [346, 400]], '#dcad74', .4, 4));
-  for (const [cx, cy, radius] of [[215, 382, 32], [284, 443, 25]]) {
-    for (const factor of [.48, .75, 1.02, 1.3]) {
-      const points = Array.from({ length: 49 }, (_, index) => {
-        const angle = index * Math.PI / 24;
-        return [cx + radius * factor * Math.cos(angle), cy + radius * factor * .72 * Math.sin(angle)];
-      });
-      world.add(tracedLine(points, '#d2a76d', .47, 4 + factor * 1.5));
-    }
-  }
 
   cityMarkers.forEach(({ nation, x, y, id }, cityIndex) => {
     const rise = heightAt(nation, x, y);
@@ -610,9 +564,7 @@ function init3D() {
       currentState = state;
       resize();
       const aspect = width / Math.max(1, height);
-      desktopDots.visible = aspect >= .9;
-      mobileDots.visible = aspect < .9;
-      contours.material.opacity = aspect < .9 ? .24 : .39;
+      contours.material.opacity = aspect < .9 ? .16 : .24;
       world.scale.set(horizontalScale(aspect, state.scale), 1, aspect < .9 ? 1.25 : 1);
       world.updateMatrixWorld(true);
       const viewWidth = (aspect < .9 ? 520 : 1180) / state.scale;
@@ -643,7 +595,7 @@ function init3D() {
       cityBeacons.forEach(({ id, beacon, buildings, street, group, survey }) => {
         beacon.visible = !focusedCity || focusedCity === id;
         buildings.visible = state.scale > 1.85 && (!focusedCity || focusedCity === id);
-        street.material.opacity = focusedCity === id ? .74 : .56;
+        street.visible = focusedCity === id && state.scale > 1.85 && !survey;
         const showSurvey = Boolean(survey && focusedCity === id && state.scale > 1.85);
         group.visible = !showSurvey;
         if (survey) survey.visible = showSurvey;
