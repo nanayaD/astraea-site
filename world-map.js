@@ -230,7 +230,11 @@ function openCity(id, anchor) {
 
 function setFocusedCity(id) {
   atlasViewport.classList.toggle('is-city-focus', Boolean(id));
-  cityMarkers.forEach(marker => marker.classList.toggle('is-focused', marker.dataset.mapCity === id));
+  const nearby = new Set(id ? atlas3d?.nearbyCities(id) ?? [] : []);
+  cityMarkers.forEach(marker => {
+    marker.classList.toggle('is-focused', marker.dataset.mapCity === id);
+    marker.classList.toggle('is-nearby', nearby.has(marker.dataset.mapCity));
+  });
   atlas3d?.setFocusCity(id);
 }
 

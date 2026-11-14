@@ -289,6 +289,22 @@ function init3D() {
     cityBeacons.push({ id, beacon, survey: null, surveyLoading: false, revealStarted: 0 });
   });
 
+  function nearbyCities(id) {
+    const center = cityMarkers.find(marker => marker.id === id);
+    if (!center) return [];
+    return cityMarkers.filter(marker => marker.id !== id)
+      .map(marker => ({ id: marker.id, distance: Math.hypot(marker.x - center.x, marker.y - center.y) }))
+      .filter(marker => marker.distance < 210)
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 2)
+      .map(marker => marker.id);
+  }
+
+  function surveyVisible(city, scale) {
+    return Boolean(focusedCity && scale > 1.9
+      && (city.id === focusedCity || nearbyCityIds.has(city.id)));
+  }
+
   async function showCitySurvey(id) {
     const city = cityBeacons.find(item => item.id === id);
     if (!city || city.survey || city.surveyLoading) return;
@@ -334,7 +350,7 @@ function init3D() {
       city.beacon.add(group);
       city.survey = group;
       city.targetOpacity = targetOpacity;
-      city.revealStarted = focusedCity === id ? performance.now() : 0;
+      city.revealStarted = focusedCity === id || nearbyCityIds.has(id) ? performance.now() : 0;
       if (currentState) adapter.update(currentState, viewport.classList.contains('show-cities'));
     } catch (error) {
       console.warn('City survey could not be loaded.', error);
@@ -349,6 +365,7 @@ function init3D() {
   let height = 0;
   let activeNation = null;
   let focusedCity = null;
+  let nearbyCityIds = new Set();
   let visible = false;
   let animationFrame = 0;
   let lastFrame = 0;
@@ -381,8 +398,10 @@ function init3D() {
     if (!city.survey) return;
     const reveal = reducedMotion.matches ? 1 : Math.max(0, Math.min(1, (now - city.revealStarted) / 350));
     const zoom = Math.max(0, Math.min(1, (scale - 1.9) / .45));
+    const isNearby = city.id !== focusedCity && nearbyCityIds.has(city.id);
     city.survey.children.forEach((lines, index) => {
-      lines.material.opacity = city.targetOpacity[index] * reveal * zoom;
+      const strength = isNearby ? (index === 0 ? .32 : .12) : 1;
+      lines.material.opacity = city.targetOpacity[index] * strength * reveal * zoom;
     });
   }
 
@@ -426,8 +445,8 @@ function init3D() {
       });
       cityMarkers.forEach(marker => projectMarker(marker, 48));
       cityBeacons.forEach(city => {
-        city.beacon.visible = !focusedCity || focusedCity === city.id;
-        if (city.survey) city.survey.visible = Boolean(focusedCity === city.id && state.scale > 1.9);
+        city.beacon.visible = !focusedCity || focusedCity === city.id || nearbyCityIds.has(city.id);
+        if (city.survey) city.survey.visible = surveyVisible(city, state.scale);
         updateSurveyOpacity(city, state.scale, performance.now());
       });
       draw();
@@ -467,17 +486,17 @@ function init3D() {
       return null;
     },
     anchorForNation(nation) { return nationAnchors.get(nation); },
+    nearbyCities,
     setFocusCity(id) {
       focusedCity = id;
-      if (id) showCitySurvey(id);
+      nearbyCityIds = new Set(id ? nearbyCities(id) : []);
+      if (id) [id, ...nearbyCityIds].forEach(cityId => showCitySurvey(cityId));
       cityBeacons.forEach(city => {
-        city.beacon.visible = !id || id === city.id;
-        if (city.survey) city.survey.visible = Boolean(id === city.id && currentState?.scale > 1.9);
-        if (city.survey && id === city.id) {
+        city.beacon.visible = !id || id === city.id || nearbyCityIds.has(city.id);
+        if (city.survey) city.survey.visible = surveyVisible(city, currentState?.scale ?? 1);
+        if (city.survey && (id === city.id || nearbyCityIds.has(city.id))) {
           city.revealStarted = performance.now();
-          city.survey.children.forEach((lines, index) => {
-            lines.material.opacity = reducedMotion.matches ? city.targetOpacity[index] : 0;
-          });
+          updateSurveyOpacity(city, currentState?.scale ?? 1, city.revealStarted);
         }
       });
       draw();

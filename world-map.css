@@ -41,6 +41,7 @@
 .atlas-city{position:absolute;z-index:2;transform:translate(-50%,-50%) rotate(var(--counter-angle));display:none;align-items:center;gap:7px;min-height:32px;padding:5px 9px;border:1px solid rgba(229,205,159,.52);background:rgba(7,25,32,.88);color:#f0e6cf;box-shadow:0 7px 18px rgba(0,0,0,.3);white-space:nowrap;transition:background .2s,border-color .2s,box-shadow .2s}
 .atlas-viewport.show-cities .atlas-city{display:flex}
 .atlas-viewport.is-city-focus .atlas-city:not(.is-focused){opacity:.32}
+.atlas-viewport.is-city-focus .atlas-city.is-nearby{opacity:.62}
 .atlas-city>span{width:7px;height:7px;flex:none;background:var(--gold);transform:rotate(45deg)}
 .atlas-city strong{font-size:11px;letter-spacing:-.04em}
 .atlas-city:hover,.atlas-city.is-active{background:#dec18e;color:#10232c;border-color:#f3deaf;box-shadow:0 0 0 5px rgba(225,193,141,.16),0 8px 20px rgba(0,0,0,.35)}
